@@ -28,14 +28,23 @@ glm::vec3 eye(0.0f, 1.0f, 8.0f);
 glm::vec3 at(0.0f, 1.0f, -1.0f);
 glm::vec3 up(0.0f, 1.0f, 0.0f);
 
-// light
-rt3d::lightStruct light = {
-	{0.4f, 0.4f, 0.4f, 1.0f}, // ambient
-	{1.0f, 1.0f, 1.0f, 1.0f}, // diffuse
-	{1.0f, 1.0f, 1.0f, 1.0f}, // specular
-	{0.0f, 5.0f, 0.0f, 1.0f}, // position
+// Blue Light
+rt3d::lightStruct lightBlue = {
+	{0.3f, 0.3f, 0.3f, 1.0f}, // ambient
+	{0.0f, 0.0f, 1.0f, 1.0f}, // diffuse
+	{0.0f, 0.0f, 1.0f, 1.0f}, // specular
+	{-6.0f, 5.0f, 14.0f, 1.0f}, // position
 };
-glm::vec4 lightPos(0.0f, 5.0f, 14.0f, 1.0f);
+glm::vec4 lightBluePos(-6.0f, 5.0f, 14.0f, 1.0f);
+
+// Yellow Light
+rt3d::lightStruct lightYellow = {
+	{0.3f, 0.3f, 0.3f, 1.0f}, // ambient
+	{1.0f, 1.0f, 0.0f, 1.0f}, // diffuse
+	{1.0f, 1.0f, 0.0f, 1.0f}, // specular
+	{6.0f, 5.0f, 14.0f, 1.0f}, // position
+};
+glm::vec4 lightYellowPos(6.0f, 5.0f, 14.0f, 1.0f);
 
 // material
 rt3d::materialStruct materialMap = {
@@ -48,7 +57,9 @@ rt3d::materialStruct materialMap = {
 stack<glm::mat4> drawStack;
 float rotationAngle =0.0f;
 
+// rotation angle of the reflector
 glm::vec3 rotationPlane(0.0f, 0.0f, 0.0f);
+// reflector Normal of the reflector
 glm::vec3 reflectorNormal(0.0f, 0.0f, 0.0f);
 
 SDL_Window* setupSDL(SDL_GLContext& context) {
@@ -107,10 +118,8 @@ GLuint loadTexture(const char* fileName) {
 
 void init() {
 	shaderProgram = rt3d::initShaders("src/phongShader.vert", "src/phongShader.frag");
-	rt3d::setLight(shaderProgram, light);
 
 	spotlightProgram = rt3d::initShaders("src/spotlightPhongShader.vert", "src/spotlightPhongShader.frag");
-	rt3d::setLight(spotlightProgram, light);
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
@@ -180,12 +189,12 @@ void movement() {
 	if (rotationAngle > 45.0f)
 		rotationAngle = 45.0f;
 
-	if (keys[SDL_SCANCODE_I]) lightPos[2] -= 0.1;
-	if (keys[SDL_SCANCODE_J]) lightPos[0] -= 0.1;
-	if (keys[SDL_SCANCODE_K]) lightPos[2] += 0.1;
-	if (keys[SDL_SCANCODE_L]) lightPos[0] += 0.1;
-	if (keys[SDL_SCANCODE_P]) lightPos[1] += 0.1f;
-	if (keys[SDL_SCANCODE_SEMICOLON]) lightPos[1] -= 0.1f;
+	if (keys[SDL_SCANCODE_I]) lightBluePos[2] -= 0.1;
+	if (keys[SDL_SCANCODE_J]) lightBluePos[0] -= 0.1;
+	if (keys[SDL_SCANCODE_K]) lightBluePos[2] += 0.1;
+	if (keys[SDL_SCANCODE_L]) lightBluePos[0] += 0.1;
+	if (keys[SDL_SCANCODE_P]) lightBluePos[1] += 0.1f;
+	if (keys[SDL_SCANCODE_SEMICOLON]) lightBluePos[1] -= 0.1f;
 }
 
 void draw(SDL_Window* window) {
@@ -201,29 +210,54 @@ void draw(SDL_Window* window) {
 
 	glm::mat4 projection = glm::perspective(float(60.0f * DEG_TO_RADIAN), 800.0f / 600.0f, 1.0f, 150.0f);
 
-	glm::vec4 tmp = drawStack.top() * lightPos;
-	light.position[0] = tmp.x;
-	light.position[1] = tmp.y;
-	light.position[2] = tmp.z;
+	glm::vec4 tmpBlue = drawStack.top() * lightBluePos;
+	lightBlue.position[0] = tmpBlue.x;
+	lightBlue.position[1] = tmpBlue.y;
+	lightBlue.position[2] = tmpBlue.z;
 
+	glm::vec4 tmpYellow = drawStack.top() * lightYellowPos;
+	lightYellow.position[0] = tmpYellow.x;
+	lightYellow.position[1] = tmpYellow.y;
+	lightYellow.position[2] = tmpYellow.z;
+
+	// Wall
 	glUseProgram(spotlightProgram);
+
+	// Set blue light
+	int uniformIndex = glGetUniformLocation(spotlightProgram, "lightBlue.ambient");
+	glUniform4fv(uniformIndex, 1, lightBlue.ambient);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightBlue.diffuse");
+	glUniform4fv(uniformIndex, 1, lightBlue.diffuse);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightBlue.specular");
+	glUniform4fv(uniformIndex, 1, lightBlue.specular);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightBluePosition");
+	glUniform4fv(uniformIndex, 1, lightBlue.position);
+
+	// Set yellow light
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellow.ambient");
+	glUniform4fv(uniformIndex, 1, lightYellow.ambient);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellow.diffuse");
+	glUniform4fv(uniformIndex, 1, lightYellow.diffuse);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellow.specular");
+	glUniform4fv(uniformIndex, 1, lightYellow.specular);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellowPosition");
+	glUniform4fv(uniformIndex, 1, lightYellow.position);
 
 	rt3d::setUniformMatrix4fv(spotlightProgram, "view", glm::value_ptr(view));
 
 	rt3d::setUniformMatrix4fv(spotlightProgram, "projection", glm::value_ptr(projection));
 
-	glm::vec4 tmpSpotlightPos = drawStack.top() * glm::vec4(0.0f, -2.0f, -3.0f, 1.0f);
-	light.position[0] = tmpSpotlightPos.x;
-	light.position[1] = tmpSpotlightPos.y;
-	light.position[2] = tmpSpotlightPos.z;
-	rt3d::setLightPos(spotlightProgram, glm::value_ptr(tmpSpotlightPos));
+	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalBlueLightPos"), 1, glm::value_ptr(tmpBlue));
+	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalYellowLightPos"), 1, glm::value_ptr(tmpYellow));
 
-	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalLightPos"), 1, glm::value_ptr(tmp));
 	glUniform3f(glGetUniformLocation(spotlightProgram, "viewPos"), eye.x, eye.y, eye.z);
-	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPosition"), 0.0f, -2.0f, -3.0f);
+
+	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionBlue"), -8.0f, -2.0f, -3.0f);
+	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionYellow"), 8.0f, -2.0f, -3.0f);
+
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorNormal"), 1, glm::value_ptr(reflectorNormal));
 
-	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(12.5f)));
+	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(5.5f)));
 
 	glBindTexture(GL_TEXTURE_2D, texture);
 	drawStack.push(drawStack.top());
@@ -234,15 +268,17 @@ void draw(SDL_Window* window) {
 	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
+	// Reflector light blue
 	glUseProgram(shaderProgram);
-	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmp));
+	rt3d::setLight(shaderProgram, lightBlue);
+	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmpBlue));
 
 	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(eye));
 
 	rt3d::setUniformMatrix4fv(shaderProgram, "projection", glm::value_ptr(projection));
 
 	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(0.0f, -2.0f, -3.0f));
+	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(-6.0f, -2.0f, -3.0f));
 	if (rotationPlane.x != 0 || rotationPlane.z != 0 )
 		drawStack.top() = glm::rotate(drawStack.top(), float(rotationAngle * DEG_TO_RADIAN), rotationPlane);
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
@@ -251,9 +287,28 @@ void draw(SDL_Window* window) {
 	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
+	// blue light position
 	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(lightPos[0], lightPos[1], lightPos[2]));
+	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(lightBluePos[0], lightBluePos[1], lightBluePos[2]));
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(1.0f, 1.0f, 1.0f));
+	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
+	rt3d::setMaterial(shaderProgram, materialMap);
+	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
+	drawStack.pop();
+
+	// Yellow light
+	rt3d::setLight(shaderProgram, lightYellow);
+	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmpYellow));
+
+	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(eye));
+
+	rt3d::setUniformMatrix4fv(shaderProgram, "projection", glm::value_ptr(projection));
+
+	drawStack.push(drawStack.top());
+	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(6.0f, -2.0f, -3.0f));
+	if (rotationPlane.x != 0 || rotationPlane.z != 0)
+		drawStack.top() = glm::rotate(drawStack.top(), float(rotationAngle * DEG_TO_RADIAN), rotationPlane);
+	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(shaderProgram, materialMap);
 	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
