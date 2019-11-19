@@ -106,19 +106,19 @@ GLuint loadTexture(const char* fileName) {
 }
 
 void init() {
-	shaderProgram = rt3d::initShaders("src/phongShader.vert", "src/phongShader.frag");
+	shaderProgram = rt3d::initShaders("../GroupProjectAGP/phongShader.vert", "../GroupProjectAGP/phongShader.frag");
 	rt3d::setLight(shaderProgram, light);
 
-	spotlightProgram = rt3d::initShaders("src/spotlightPhongShader.vert", "src/spotlightPhongShader.frag");
+	spotlightProgram = rt3d::initShaders("../GroupProjectAGP/spotlightPhongShader.vert", "../GroupProjectAGP/spotlightPhongShader.frag");
 	rt3d::setLight(spotlightProgram, light);
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
 	vector<GLfloat> tex_coords;
 	vector<GLuint> indices;
-	rt3d::loadObj("src/cube.obj", verts, norms, tex_coords, indices);
+	rt3d::loadObj("../GroupProjectAGP/cube.obj", verts, norms, tex_coords, indices);
 	meshIndexCount = indices.size();
-	texture = loadTexture("src/Red_bricks.bmp");
+	texture = loadTexture("../GroupProjectAGP/Red_bricks.bmp");
 	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
 
 	glEnable(GL_DEPTH_TEST);
