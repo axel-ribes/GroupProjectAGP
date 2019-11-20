@@ -11,7 +11,8 @@ uniform vec3 reflectorPositionBlue;
 uniform vec3 generalYellowLightPos;
 uniform vec3 reflectorPositionYellow;
 
-uniform vec3 reflectorNormal;
+uniform vec3 reflectorBlueNormal;
+uniform vec3 reflectorYellowNormal;
 
 in vec3 in_Pos;
 in vec3 in_Normal;
@@ -30,10 +31,10 @@ void main(void) {
 	mat3 normalmatrix = transpose(inverse(mat3(model)));
 	ex_NormalWorld = in_Normal * normalmatrix;
 
-	lightBlueDirection = reflect(generalBlueLightPos - reflectorPositionBlue, reflectorNormal);
+	lightBlueDirection = reflect(generalBlueLightPos - reflectorPositionBlue, reflectorBlueNormal);
 	lightBlueDirection.x = -lightBlueDirection.x;
 
-	lightYellowDirection = reflect(generalYellowLightPos - reflectorPositionYellow, reflectorNormal);
+	lightYellowDirection = reflect(generalYellowLightPos - reflectorPositionYellow, reflectorYellowNormal);
 	lightYellowDirection.x = -lightYellowDirection.x;
 
 	ex_TexCoord = in_TexCoord;

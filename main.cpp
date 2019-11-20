@@ -55,12 +55,15 @@ rt3d::materialStruct materialMap = {
 };
 
 stack<glm::mat4> drawStack;
-float rotationAngle =0.0f;
+float rotationBlueAngle =0.0f;
+float rotationYellowAngle =0.0f;
 
-// rotation angle of the reflector
-glm::vec3 rotationPlane(0.0f, 0.0f, 0.0f);
-// reflector Normal of the reflector
-glm::vec3 reflectorNormal(0.0f, 0.0f, 0.0f);
+// rotation angle of the reflectors
+glm::vec3 rotationBluePlane(0.0f, 0.0f, 0.0f);
+glm::vec3 rotationYellowPlane(0.0f, 0.0f, 0.0f);
+// reflector Normal of the reflectors
+glm::vec3 reflectorBlueNormal(0.0f, 0.0f, 0.0f);
+glm::vec3 reflectorYellowNormal(0.0f, 0.0f, 0.0f);
 
 SDL_Window* setupSDL(SDL_GLContext& context) {
 	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
@@ -153,48 +156,79 @@ void movement() {
 	if (keys[SDL_SCANCODE_PERIOD]) r += 0.5f;
 
 	if (keys[SDL_SCANCODE_UP]) {
-		if (rotationPlane.x >= -1) {
-			rotationPlane.x -= 0.01;
+		if (rotationBluePlane.x >= -1) {
+			rotationBluePlane.x -= 0.01;
 		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
-		if (rotationPlane.z >= -1) {
-			rotationPlane.z -= 0.01;
+		if (rotationBluePlane.z >= -1) {
+			rotationBluePlane.z -= 0.01;
 		}
 	}
 	if (keys[SDL_SCANCODE_LEFT]) {
-		if (rotationPlane.z <= 1) {
-			rotationPlane.z += 0.01;
+		if (rotationBluePlane.z <= 1) {
+			rotationBluePlane.z += 0.01;
 		}
 	}
 	if (keys[SDL_SCANCODE_DOWN]) {
-		if (rotationPlane.x <= 1) {
-			rotationPlane.x += 0.01;
+		if (rotationBluePlane.x <= 1) {
+			rotationBluePlane.x += 0.01;
 		}
 	}
-	reflectorNormal.z = ((abs(rotationPlane.x) * 45.0f) * 1) / 180;
-	if (rotationPlane.x < 0)
-		reflectorNormal.z += 1;
+	reflectorBlueNormal.z = ((abs(rotationBluePlane.x) * 45.0f) * 1) / 180;
+	if (rotationBluePlane.x < 0)
+		reflectorBlueNormal.z += 1;
 	else
-		reflectorNormal.z -= 1;
+		reflectorBlueNormal.z -= 1;
 
-	reflectorNormal.x = ((rotationPlane.z * 45.0f) * 0.5) / 90;
-	if (rotationPlane.x < 0)
-		reflectorNormal.x = -reflectorNormal.x;
+	reflectorBlueNormal.x = ((rotationBluePlane.z * 45.0f) * 0.5) / 90;
+	if (rotationBluePlane.x < 0)
+		reflectorBlueNormal.x = -reflectorBlueNormal.x;
 
-	if (abs(rotationPlane.x) < abs(rotationPlane.z))
-		rotationAngle = abs(rotationPlane.z) * 45.0f;
+	if (abs(rotationBluePlane.x) < abs(rotationBluePlane.z))
+		rotationBlueAngle = abs(rotationBluePlane.z) * 45.0f;
 	else
-		rotationAngle = abs(rotationPlane.x) * 45.0f;
-	if (rotationAngle > 45.0f)
-		rotationAngle = 45.0f;
+		rotationBlueAngle = abs(rotationBluePlane.x) * 45.0f;
+	if (rotationBlueAngle > 45.0f)
+		rotationBlueAngle = 45.0f;
 
-	if (keys[SDL_SCANCODE_I]) lightBluePos[2] -= 0.1;
-	if (keys[SDL_SCANCODE_J]) lightBluePos[0] -= 0.1;
-	if (keys[SDL_SCANCODE_K]) lightBluePos[2] += 0.1;
-	if (keys[SDL_SCANCODE_L]) lightBluePos[0] += 0.1;
-	if (keys[SDL_SCANCODE_P]) lightBluePos[1] += 0.1f;
-	if (keys[SDL_SCANCODE_SEMICOLON]) lightBluePos[1] -= 0.1f;
+
+	if (keys[SDL_SCANCODE_I]) {
+		if (rotationYellowPlane.x >= -1) {
+			rotationYellowPlane.x -= 0.01;
+		}
+	}
+	if (keys[SDL_SCANCODE_L]) {
+		if (rotationYellowPlane.z >= -1) {
+			rotationYellowPlane.z -= 0.01;
+		}
+	}
+	if (keys[SDL_SCANCODE_J]) {
+		if (rotationYellowPlane.z <= 1) {
+			rotationYellowPlane.z += 0.01;
+		}
+	}
+	if (keys[SDL_SCANCODE_K]) {
+		if (rotationYellowPlane.x <= 1) {
+			rotationYellowPlane.x += 0.01;
+		}
+	}
+	reflectorYellowNormal.z = ((abs(rotationYellowPlane.x) * 45.0f) * 1) / 180;
+	if (rotationYellowPlane.x < 0)
+		reflectorYellowNormal.z += 1;
+	else
+		reflectorYellowNormal.z -= 1;
+
+	reflectorYellowNormal.x = ((rotationYellowPlane.z * 45.0f) * 0.5) / 90;
+	if (rotationYellowPlane.x < 0)
+		reflectorYellowNormal.x = -reflectorYellowNormal.x;
+
+	if (abs(rotationYellowPlane.x) < abs(rotationYellowPlane.z))
+		rotationYellowAngle = abs(rotationYellowPlane.z) * 45.0f;
+	else
+		rotationYellowAngle = abs(rotationYellowPlane.x) * 45.0f;
+	if (rotationYellowAngle > 45.0f)
+		rotationYellowAngle = 45.0f;
 }
 
 void draw(SDL_Window* window) {
@@ -255,7 +289,8 @@ void draw(SDL_Window* window) {
 	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionBlue"), -8.0f, -2.0f, -3.0f);
 	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionYellow"), 8.0f, -2.0f, -3.0f);
 
-	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorNormal"), 1, glm::value_ptr(reflectorNormal));
+	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorBlueNormal"), 1, glm::value_ptr(reflectorBlueNormal));
+	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorYellowNormal"), 1, glm::value_ptr(reflectorYellowNormal));
 
 	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(5.5f)));
 
@@ -279,8 +314,8 @@ void draw(SDL_Window* window) {
 
 	drawStack.push(drawStack.top());
 	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(-6.0f, -2.0f, -3.0f));
-	if (rotationPlane.x != 0 || rotationPlane.z != 0 )
-		drawStack.top() = glm::rotate(drawStack.top(), float(rotationAngle * DEG_TO_RADIAN), rotationPlane);
+	if (rotationBluePlane.x != 0 || rotationBluePlane.z != 0 )
+		drawStack.top() = glm::rotate(drawStack.top(), float(rotationBlueAngle * DEG_TO_RADIAN), rotationBluePlane);
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(shaderProgram, materialMap);
@@ -306,8 +341,8 @@ void draw(SDL_Window* window) {
 
 	drawStack.push(drawStack.top());
 	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(6.0f, -2.0f, -3.0f));
-	if (rotationPlane.x != 0 || rotationPlane.z != 0)
-		drawStack.top() = glm::rotate(drawStack.top(), float(rotationAngle * DEG_TO_RADIAN), rotationPlane);
+	if (rotationYellowPlane.x != 0 || rotationYellowPlane.z != 0)
+		drawStack.top() = glm::rotate(drawStack.top(), float(rotationYellowAngle * DEG_TO_RADIAN), rotationYellowPlane);
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(shaderProgram, materialMap);
