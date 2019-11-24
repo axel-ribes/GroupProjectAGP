@@ -34,6 +34,7 @@ void main(void)
 	vec4 texWeight4 = tex4 * val4;				
 	vec4 texWeight5 = tex5 * val5;				
 
-	out_Color = (texWeight0 + texWeight1 + texWeight2 + texWeight3 + texWeight4 + texWeight5) / 6;
+	//out_Color = (texWeight0 + texWeight1 + texWeight2 + texWeight3 + texWeight4 + texWeight5) / 6;
+	out_Color = (tex0 + tex1 + tex2 + tex3 + tex4 + tex5) / 6;
 }
 
