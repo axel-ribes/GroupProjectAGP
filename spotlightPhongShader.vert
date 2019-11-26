@@ -31,6 +31,7 @@ void main(void) {
 	mat3 normalmatrix = transpose(inverse(mat3(model)));
 	ex_NormalWorld = in_Normal * normalmatrix;
 
+	// Calculate the direction of the light reflection on the reflectors
 	lightBlueDirection = reflect(generalBlueLightPos - reflectorPositionBlue, reflectorBlueNormal);
 	lightBlueDirection.x = -lightBlueDirection.x;
 

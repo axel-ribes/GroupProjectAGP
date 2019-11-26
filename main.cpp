@@ -35,8 +35,8 @@ rt3d::lightStruct lightBlue = {
 	{0.0f, 0.0f, 1.0f, 1.0f}, // specular
 	{-6.0f, 5.0f, 14.0f, 1.0f}, // position
 };
-glm::vec4 lightBluePos(-6.0f, 5.0f, 14.0f, 1.0f);
-
+glm::vec4 lightBluePos(-6.0f, 1.0f, 10.0f, 1.0f);
+	
 // Yellow Light
 rt3d::lightStruct lightYellow = {
 	{0.3f, 0.3f, 0.3f, 1.0f}, // ambient
@@ -44,7 +44,7 @@ rt3d::lightStruct lightYellow = {
 	{1.0f, 1.0f, 0.0f, 1.0f}, // specular
 	{6.0f, 5.0f, 14.0f, 1.0f}, // position
 };
-glm::vec4 lightYellowPos(6.0f, 5.0f, 14.0f, 1.0f);
+glm::vec4 lightYellowPos(6.0f, 3.5f, 10.0f, 1.0f);
 
 // material
 rt3d::materialStruct materialMap = {
@@ -146,53 +146,17 @@ glm::vec3 moveRight(glm::vec3 pos, GLfloat angle, GLfloat d) {
 
 void movement() {
 	const Uint8* keys = SDL_GetKeyboardState(NULL);
-	if (keys[SDL_SCANCODE_W]) eye = moveForward(eye, r, 0.1f);
-	if (keys[SDL_SCANCODE_S]) eye = moveForward(eye, r, -0.1f);
-	if (keys[SDL_SCANCODE_D]) eye = moveRight(eye, r, 0.1f);
-	if (keys[SDL_SCANCODE_A]) eye = moveRight(eye, r, -0.1f);
-	if (keys[SDL_SCANCODE_R]) eye.y += 0.1f;
-	if (keys[SDL_SCANCODE_F]) eye.y -= 0.1f;
+	// movements of the camera
+	if (keys[SDL_SCANCODE_UP]) eye = moveForward(eye, r, 0.1f);
+	if (keys[SDL_SCANCODE_DOWN]) eye = moveForward(eye, r, -0.1f);
+	if (keys[SDL_SCANCODE_RIGHT]) eye = moveRight(eye, r, 0.1f);
+	if (keys[SDL_SCANCODE_LEFT]) eye = moveRight(eye, r, -0.1f);
+	if (keys[SDL_SCANCODE_1]) eye.y += 0.1f;
+	if (keys[SDL_SCANCODE_0]) eye.y -= 0.1f;
 	if (keys[SDL_SCANCODE_COMMA]) r -= 0.5f;
 	if (keys[SDL_SCANCODE_PERIOD]) r += 0.5f;
 
-	if (keys[SDL_SCANCODE_UP]) {
-		if (rotationBluePlane.x >= -1) {
-			rotationBluePlane.x -= 0.01;
-		}
-	}
-	if (keys[SDL_SCANCODE_RIGHT]) {
-		if (rotationBluePlane.z >= -1) {
-			rotationBluePlane.z -= 0.01;
-		}
-	}
-	if (keys[SDL_SCANCODE_LEFT]) {
-		if (rotationBluePlane.z <= 1) {
-			rotationBluePlane.z += 0.01;
-		}
-	}
-	if (keys[SDL_SCANCODE_DOWN]) {
-		if (rotationBluePlane.x <= 1) {
-			rotationBluePlane.x += 0.01;
-		}
-	}
-	reflectorBlueNormal.z = ((abs(rotationBluePlane.x) * 45.0f) * 1) / 180;
-	if (rotationBluePlane.x < 0)
-		reflectorBlueNormal.z += 1;
-	else
-		reflectorBlueNormal.z -= 1;
-
-	reflectorBlueNormal.x = ((rotationBluePlane.z * 45.0f) * 0.5) / 90;
-	if (rotationBluePlane.x < 0)
-		reflectorBlueNormal.x = -reflectorBlueNormal.x;
-
-	if (abs(rotationBluePlane.x) < abs(rotationBluePlane.z))
-		rotationBlueAngle = abs(rotationBluePlane.z) * 45.0f;
-	else
-		rotationBlueAngle = abs(rotationBluePlane.x) * 45.0f;
-	if (rotationBlueAngle > 45.0f)
-		rotationBlueAngle = 45.0f;
-
-
+	// movements of the yellow reflector
 	if (keys[SDL_SCANCODE_I]) {
 		if (rotationYellowPlane.x >= -1) {
 			rotationYellowPlane.x -= 0.01;
@@ -213,6 +177,7 @@ void movement() {
 			rotationYellowPlane.x += 0.01;
 		}
 	}
+	// calculate the yellow reflector normals according to is movements
 	reflectorYellowNormal.z = ((abs(rotationYellowPlane.x) * 45.0f) * 1) / 180;
 	if (rotationYellowPlane.x < 0)
 		reflectorYellowNormal.z += 1;
@@ -229,6 +194,46 @@ void movement() {
 		rotationYellowAngle = abs(rotationYellowPlane.x) * 45.0f;
 	if (rotationYellowAngle > 45.0f)
 		rotationYellowAngle = 45.0f;
+
+	// movements of the blue reflector
+	if (keys[SDL_SCANCODE_W]) {
+		if (rotationBluePlane.x >= -1) {
+			rotationBluePlane.x -= 0.01;
+		}
+	}
+	if (keys[SDL_SCANCODE_D]) {
+		if (rotationBluePlane.z >= -1) {
+			rotationBluePlane.z -= 0.01;
+		}
+	}
+	if (keys[SDL_SCANCODE_A]) {
+		if (rotationBluePlane.z <= 1) {
+			rotationBluePlane.z += 0.01;
+		}
+	}
+	if (keys[SDL_SCANCODE_S]) {
+		if (rotationBluePlane.x <= 1) {
+			rotationBluePlane.x += 0.01;
+		}
+	}
+
+	// calculate the blue reflector normals according to is movements
+	reflectorBlueNormal.z = ((abs(rotationBluePlane.x) * 45.0f) * 1) / 180;
+	if (rotationBluePlane.x < 0)
+		reflectorBlueNormal.z += 1;
+	else
+		reflectorBlueNormal.z -= 1;
+
+	reflectorBlueNormal.x = ((rotationBluePlane.z * 45.0f) * 0.5) / 90;
+	if (rotationBluePlane.x < 0)
+		reflectorBlueNormal.x = -reflectorBlueNormal.x;
+
+	if (abs(rotationBluePlane.x) < abs(rotationBluePlane.z))
+		rotationBlueAngle = abs(rotationBluePlane.z) * 45.0f;
+	else
+		rotationBlueAngle = abs(rotationBluePlane.x) * 45.0f;
+	if (rotationBlueAngle > 45.0f)
+		rotationBlueAngle = 45.0f;
 }
 
 void draw(SDL_Window* window) {
@@ -277,23 +282,30 @@ void draw(SDL_Window* window) {
 	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellowPosition");
 	glUniform4fv(uniformIndex, 1, lightYellow.position);
 
+	// set the uniforms matricies
 	rt3d::setUniformMatrix4fv(spotlightProgram, "view", glm::value_ptr(view));
 
 	rt3d::setUniformMatrix4fv(spotlightProgram, "projection", glm::value_ptr(projection));
-
+	 
+	// set the positions of the light
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalBlueLightPos"), 1, glm::value_ptr(tmpBlue));
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalYellowLightPos"), 1, glm::value_ptr(tmpYellow));
 
+	// position of the camera
 	glUniform3f(glGetUniformLocation(spotlightProgram, "viewPos"), eye.x, eye.y, eye.z);
 
+	// reflectors' position
 	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionBlue"), -8.0f, -2.0f, -3.0f);
 	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionYellow"), 8.0f, -2.0f, -3.0f);
 
+	// reflector's normal
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorBlueNormal"), 1, glm::value_ptr(reflectorBlueNormal));
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorYellowNormal"), 1, glm::value_ptr(reflectorYellowNormal));
 
-	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(5.5f)));
+	// cut off angle
+	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(3.0f)));
 
+	// building the wall
 	glBindTexture(GL_TEXTURE_2D, texture);
 	drawStack.push(drawStack.top());
 	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(0.0f, 7.0f, -20.0f));
@@ -322,22 +334,9 @@ void draw(SDL_Window* window) {
 	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
-	// blue light position
-	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(lightBluePos[0], lightBluePos[1], lightBluePos[2]));
-	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(1.0f, 1.0f, 1.0f));
-	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
-	drawStack.pop();
-
-	// Yellow light
+	// Reflector light yellow
 	rt3d::setLight(shaderProgram, lightYellow);
 	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmpYellow));
-
-	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(eye));
-
-	rt3d::setUniformMatrix4fv(shaderProgram, "projection", glm::value_ptr(projection));
 
 	drawStack.push(drawStack.top());
 	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(6.0f, -2.0f, -3.0f));
