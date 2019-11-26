@@ -39,7 +39,39 @@ void main (void){
 	float thetaBlue = dot(LightDirBlue, normalize(lightBlueDirection));
 	float thetaYellow = dot(LightDirYellow, normalize(lightYellowDirection));
 
-	if (thetaBlue > lightCutOff){
+	if (thetaBlue > lightCutOff && thetaYellow > lightCutOff){
+		// Convert Yellow light from RGB to RYB
+		vec3 RGBYellow = lightYellow.diffuse.xyz;
+		vec3 RYBYellow = lightYellow.diffuse.xyz;
+		RYBYellow.x = RGBYellow.x - min(RGBYellow.x, RGBYellow.y);
+		RYBYellow.y = (RGBYellow.y + min(RGBYellow.x, RGBYellow.y))/2;
+		RYBYellow.z = (RGBYellow.z + RGBYellow.y - min(RGBYellow.x, RGBYellow.y))/2;
+
+		// Caluclate color
+		vec3 combinedColorLightRYB = RGBYellow + lightBlue.diffuse.xyz;
+
+		// convert combinedColorLight from RYB to RGB
+		vec3 combinedColorLightRGB = combinedColorLightRYB;
+		combinedColorLightRGB.x = combinedColorLightRYB.x + combinedColorLightRYB.y - min(combinedColorLightRYB.y, combinedColorLightRYB.z);
+		combinedColorLightRGB.y = combinedColorLightRYB.y + 2*min(combinedColorLightRYB.y, combinedColorLightRYB.z);
+		combinedColorLightRGB.z = 2*(combinedColorLightRYB.z - min(combinedColorLightRYB.y, combinedColorLightRYB.z));
+
+		vec4 coloredLight = vec4(combinedColorLightRGB, 1);
+
+		// Calculate the light
+		vec4 ambientI = lightBlue.ambient * material.ambient;
+		vec4 diffuseI = coloredLight * material.diffuse;
+		diffuseI = diffuseI * max(dot(normalize(ex_NormalWorld),normalize(-LightDirBlue)),0) * max(dot(normalize(ex_NormalWorld),normalize(-LightDirYellow)),0);
+
+		vec3 viewDir = normalize(viewPos - ex_Pos);
+		vec3 R = reflect(LightDirBlue,ex_NormalWorld) * reflect(LightDirYellow,ex_NormalWorld);
+
+		vec4 specularI = coloredLight * material.specular;
+		specularI = specularI * pow(max(dot(viewDir, R),0.0), material.shininess);
+
+		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+	}
+	else if (thetaBlue > lightCutOff){
 		vec4 ambientI = lightBlue.ambient * material.ambient;
 		vec4 diffuseI = lightBlue.diffuse * material.diffuse;
 		diffuseI = diffuseI * max(dot(normalize(ex_NormalWorld),normalize(-LightDirBlue)),0);
@@ -51,6 +83,7 @@ void main (void){
 		specularI = specularI * pow(max(dot(viewDir, R),0.0), material.shininess);
 
 		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+		//out_Color = vec4(0,1,0,1) * texture(textureUnit0, ex_TexCoord);
 	}
 	else if (thetaYellow > lightCutOff){
 		vec4 ambientI = lightYellow.ambient * material.ambient;
