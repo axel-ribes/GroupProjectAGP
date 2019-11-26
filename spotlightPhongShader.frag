@@ -43,18 +43,18 @@ void main (void){
 		// Convert Yellow light from RGB to RYB
 		vec3 RGBYellow = lightYellow.diffuse.xyz;
 		vec3 RYBYellow = lightYellow.diffuse.xyz;
-		RYBYellow.x = RGBYellow.x - min(RGBYellow.x, RGBYellow.y);
-		RYBYellow.y = (RGBYellow.y + min(RGBYellow.x, RGBYellow.y))/2;
-		RYBYellow.z = (RGBYellow.z + RGBYellow.y - min(RGBYellow.x, RGBYellow.y))/2;
+		RYBYellow.x = RGBYellow.r - min(RGBYellow.r, RGBYellow.g);
+		RYBYellow.y = (RGBYellow.g + min(RGBYellow.r, RGBYellow.g))/2;
+		RYBYellow.z = (RGBYellow.b + RGBYellow.g - min(RGBYellow.r, RGBYellow.g))/2;
 
 		// Caluclate color
-		vec3 combinedColorLightRYB = RGBYellow + lightBlue.diffuse.xyz;
+		vec3 combinedColorLightRYB = RYBYellow + lightBlue.diffuse.xyz;
 
 		// convert combinedColorLight from RYB to RGB
 		vec3 combinedColorLightRGB = combinedColorLightRYB;
-		combinedColorLightRGB.x = combinedColorLightRYB.x + combinedColorLightRYB.y - min(combinedColorLightRYB.y, combinedColorLightRYB.z);
-		combinedColorLightRGB.y = combinedColorLightRYB.y + 2*min(combinedColorLightRYB.y, combinedColorLightRYB.z);
-		combinedColorLightRGB.z = 2*(combinedColorLightRYB.z - min(combinedColorLightRYB.y, combinedColorLightRYB.z));
+		combinedColorLightRGB.r = combinedColorLightRYB.x + combinedColorLightRYB.y - min(combinedColorLightRYB.y, combinedColorLightRYB.z);
+		combinedColorLightRGB.g = combinedColorLightRYB.y + 2*min(combinedColorLightRYB.y, combinedColorLightRYB.z);
+		combinedColorLightRGB.b = 2*(combinedColorLightRYB.z - min(combinedColorLightRYB.y, combinedColorLightRYB.z));
 
 		vec4 coloredLight = vec4(combinedColorLightRGB, 1);
 
@@ -70,7 +70,10 @@ void main (void){
 		specularI = specularI * pow(max(dot(viewDir, R),0.0), material.shininess);
 
 		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+		//out_Color = vec4(combinedColorLightRYB, 1.0) * texture(textureUnit0, ex_TexCoord);
 	}
+	//vec4 litColorBlue;
+	//vec4 litColorYellow;
 	else if (thetaBlue > lightCutOff){
 		vec4 ambientI = lightBlue.ambient * material.ambient;
 		vec4 diffuseI = lightBlue.diffuse * material.diffuse;
@@ -82,7 +85,7 @@ void main (void){
 		vec4 specularI = lightBlue.specular * material.specular;
 		specularI = specularI * pow(max(dot(viewDir, R),0.0), material.shininess);
 
-		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+		out_Color = (ambientI + diffuseI + specularI)* texture (textureUnit0, ex_TexCoord);
 		//out_Color = vec4(0,1,0,1) * texture(textureUnit0, ex_TexCoord);
 	}
 	else if (thetaYellow > lightCutOff){
@@ -96,9 +99,9 @@ void main (void){
 		vec4 specularI = lightYellow.specular * material.specular;
 		specularI = specularI * pow(max(dot(viewDir, R),0.0), material.shininess);
 
-		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+		out_Color = (ambientI + diffuseI + specularI)* texture (textureUnit0, ex_TexCoord);
 	}
-	else
+	//out_Color = ((litColorBlue*0.5)+(litColorYellow*0.5)) * texture (textureUnit0, ex_TexCoord);
+	if (thetaBlue < lightCutOff && thetaYellow < lightCutOff)
 		out_Color = vec4(lightBlue.ambient.xyz * vec3(texture (textureUnit0, ex_TexCoord)), 1.0);
-
 }
