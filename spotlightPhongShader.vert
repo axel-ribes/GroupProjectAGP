@@ -4,14 +4,21 @@
 uniform mat4 model;
 uniform mat4 view;
 uniform mat4 projection;
-uniform vec3 generalLightPos;
-uniform vec3 reflectorPosition;
-uniform vec3 reflectorNormal;
+
+uniform vec3 generalBlueLightPos;
+uniform vec3 reflectorPositionBlue;
+
+uniform vec3 generalYellowLightPos;
+uniform vec3 reflectorPositionYellow;
+
+uniform vec3 reflectorBlueNormal;
+uniform vec3 reflectorYellowNormal;
 
 in vec3 in_Pos;
 in vec3 in_Normal;
 
-out vec3 lightDirection;
+out vec3 lightBlueDirection;
+out vec3 lightYellowDirection;
 out vec3 ex_NormalWorld;
 out vec3 ex_Pos;
 
@@ -24,8 +31,12 @@ void main(void) {
 	mat3 normalmatrix = transpose(inverse(mat3(model)));
 	ex_NormalWorld = in_Normal * normalmatrix;
 
-	lightDirection = reflect(generalLightPos - reflectorPosition, reflectorNormal);
-	lightDirection.x = -lightDirection.x;
+	// Calculate the direction of the light reflection on the reflectors
+	lightBlueDirection = reflect(generalBlueLightPos - reflectorPositionBlue, reflectorBlueNormal);
+	lightBlueDirection.x = -lightBlueDirection.x;
+
+	lightYellowDirection = reflect(generalYellowLightPos - reflectorPositionYellow, reflectorYellowNormal);
+	lightYellowDirection.x = -lightYellowDirection.x;
 
 	ex_TexCoord = in_TexCoord;
 
