@@ -270,33 +270,33 @@ glm::vec3 moveRight(glm::vec3 pos, GLfloat angle, GLfloat d) {
 
 void movement() {
 	const Uint8* keys = SDL_GetKeyboardState(NULL);
-	if (keys[SDL_SCANCODE_W]) eye = moveForward(eye, r, 0.1f);
-	if (keys[SDL_SCANCODE_S]) eye = moveForward(eye, r, -0.1f);
-	if (keys[SDL_SCANCODE_D]) eye = moveRight(eye, r, 0.1f);
-	if (keys[SDL_SCANCODE_A]) eye = moveRight(eye, r, -0.1f);
+	if (keys[SDL_SCANCODE_W]) eye = moveForward(eye, r, 0.5f);
+	if (keys[SDL_SCANCODE_S]) eye = moveForward(eye, r, -0.5f);
+	if (keys[SDL_SCANCODE_D]) eye = moveRight(eye, r, 0.5f);
+	if (keys[SDL_SCANCODE_A]) eye = moveRight(eye, r, -0.5f);
 	if (keys[SDL_SCANCODE_R]) eye.y += 0.1f;
 	if (keys[SDL_SCANCODE_F]) eye.y -= 0.1f;
-	if (keys[SDL_SCANCODE_COMMA]) r -= 0.2f;
-	if (keys[SDL_SCANCODE_PERIOD]) r += 0.3f;
+	if (keys[SDL_SCANCODE_COMMA]) r -= 0.5f;
+	if (keys[SDL_SCANCODE_PERIOD]) r += 0.5f;
 
 	if (keys[SDL_SCANCODE_UP]) {
 		if (rotationBluePlane.x >= -1) {
-			rotationBluePlane.x -= 0.01;
+			rotationBluePlane.x -= 0.5;
 		}
 	}
 	if (keys[SDL_SCANCODE_RIGHT]) {
 		if (rotationBluePlane.z >= -1) {
-			rotationBluePlane.z -= 0.01;
+			rotationBluePlane.z -= 0.5;
 		}
 	}
 	if (keys[SDL_SCANCODE_LEFT]) {
 		if (rotationBluePlane.z <= 1) {
-			rotationBluePlane.z += 0.01;
+			rotationBluePlane.z += 0.5;
 		}
 	}
 	if (keys[SDL_SCANCODE_DOWN]) {
 		if (rotationBluePlane.x <= 1) {
-			rotationBluePlane.x += 0.01;
+			rotationBluePlane.x += 0.5;
 		}
 	}
 	reflectorBlueNormal.z = ((abs(rotationBluePlane.x) * 45.0f) * 1) / 180;
@@ -493,6 +493,7 @@ void draw(SDL_Window* window) {
 	
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, pboBuffer);
 	glReadPixels(0, 0, screenWidth, screenHeight, GL_RGB, GL_UNSIGNED_BYTE, NULL);						//FBO to PBO
+
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
 	// -----------------------------------------------------------------------------------Copy PBO to the texture
