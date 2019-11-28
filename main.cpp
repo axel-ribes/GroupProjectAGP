@@ -21,6 +21,7 @@ GLuint i = 0;
 GLuint pboTex[5];
 GLuint pboTexSize;
 GLuint pboBuffer;
+float pixelColour[1] = { 0 };
 
 GLuint skybox[5];
 GLuint skyboxShader;
@@ -40,7 +41,7 @@ GLuint motionBlur;
 
 GLfloat r = 0.0f;
 
-glm::vec3 eye(0.0f, 1.0f, 8.0f);
+glm::vec3 eye(0.0f, 7.0f, 8.0f);
 glm::vec3 at(0.0f, 1.0f, -1.0f);
 glm::vec3 up(0.0f, 1.0f, 0.0f);
 glm::vec3 newCam;
@@ -176,10 +177,8 @@ GLuint loadCubeMap(const char *fname[6], GLuint *texID)
 
 void init() {
 	shaderProgram = rt3d::initShaders("../phongShader.vert", "../phongShader.frag");
-	//rt3d::setLight(shaderProgram, light);
 
 	spotlightProgram = rt3d::initShaders("../spotlightPhongShader.vert", "../spotlightPhongShader.frag");
-	//rt3d::setLight(spotlightProgram, light);
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
@@ -507,8 +506,8 @@ void draw(SDL_Window* window) {
 
 	glUseProgram(motionBlur);
 	rt3d::setUniformMatrix4fv(motionBlur, "projection", glm::value_ptr(projection));
-	model = glm::translate(glm::mat4(1.0), glm::vec3(-2.0f, -2.5f, -10.0f));					//Position quad
-	model = glm::scale(model, glm::vec3(4.0f, -3.0f, 0.1f));									//Scale quad
+	model = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, -10.0f));					//Position quad
+	model = glm::scale(model, glm::vec3(7.79, -5.85f, 0.1f));									//Scale quad
 	rt3d::setUniformMatrix4fv(motionBlur, "modelview", glm::value_ptr(model));
 
 	//---------------------------------------------------------------------------------------bind textures to texture 
@@ -521,6 +520,16 @@ void draw(SDL_Window* window) {
 	   
 	i++;
 	if (i >= 6) i = 0;
+
+	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
+	glReadPixels(400, 300, 1, 1, GL_GREEN, GL_FLOAT, pixelColour);
+	cout << " g : " << pixelColour[0] << "\n";
+
+
+	if (pixelColour[0] > 0.7)
+	{
+		cout << "green \n" << pixelColour[0];
+	}
 
 	SDL_GL_SwapWindow(window);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));

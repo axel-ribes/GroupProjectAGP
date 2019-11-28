@@ -1,3 +1,4 @@
+  
 // spotlightPhongShader.vert
 #version 330
 
@@ -26,12 +27,12 @@ in vec2 in_TexCoord;
 out vec2 ex_TexCoord;
 
 void main(void) {
-
 	ex_Pos = vec3(model * vec4(in_Pos,1.0));
 
 	mat3 normalmatrix = transpose(inverse(mat3(model)));
 	ex_NormalWorld = in_Normal * normalmatrix;
 
+	// Calculate the direction of the light reflection on the reflectors
 	lightBlueDirection = reflect(generalBlueLightPos - reflectorPositionBlue, reflectorBlueNormal);
 	lightBlueDirection.x = -lightBlueDirection.x;
 
