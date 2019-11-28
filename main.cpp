@@ -21,13 +21,14 @@ GLuint i = 0;
 GLuint pboTex[5];
 GLuint pboTexSize;
 GLuint pboBuffer;
-float pixelColour[1] = { 0 };
+
 
 GLuint skybox[5];
 GLuint skyboxShader;
 
 GLuint screenWidth = 800;
 GLuint screenHeight = 600;
+float pixelColour[480000] = { 0 };
 
 
 GLuint meshIndexCount = 0;
@@ -495,7 +496,7 @@ void draw(SDL_Window* window) {
 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 
-	// -----------------------------------------------------------------------------------Copy PBO to the texture
+	// -------------------------------------------------------------------------------------------------Copy PBO to the texture
 	glBindTexture(GL_TEXTURE_2D, pboTex[i]);															// Needs to increase i each frame, to change out the texture that the pbo is copying to
 	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboBuffer);
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
@@ -506,11 +507,11 @@ void draw(SDL_Window* window) {
 
 	glUseProgram(motionBlur);
 	rt3d::setUniformMatrix4fv(motionBlur, "projection", glm::value_ptr(projection));
-	model = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, -10.0f));					//Position quad
-	model = glm::scale(model, glm::vec3(7.79, -5.85f, 0.1f));									//Scale quad
+	model = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, -10.0f));								//Position quad
+	model = glm::scale(model, glm::vec3(7.79, -5.85f, 0.1f));											//Scale quad
 	rt3d::setUniformMatrix4fv(motionBlur, "modelview", glm::value_ptr(model));
 
-	//---------------------------------------------------------------------------------------bind textures to texture 
+	//---------------------------------------------------------------------------------------------------bind textures to texture 
 
 	glActiveTexture(GL_TEXTURE0);
 	glDisable(GL_CULL_FACE);
@@ -522,15 +523,16 @@ void draw(SDL_Window* window) {
 	if (i >= 6) i = 0;
 
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	glReadPixels(400, 300, 1, 1, GL_GREEN, GL_FLOAT, pixelColour);
-	cout << " g : " << pixelColour[0] << "\n";
+	glReadPixels(0, 0, screenWidth, screenHeight, GL_GREEN, GL_FLOAT, pixelColour);						//Reading green pixel data into pixelColour. 
 
-
-	if (pixelColour[0] > 0.7)
+	for (int i = 0; i < 480000; i++)
 	{
-		cout << "green \n" << pixelColour[0];
+		if (pixelColour[i] > 0.998)																		//Values not exact as converted from being stored as ints
+		{			
+			cout << "green \n\n";
+		}
 	}
-
+	
 	SDL_GL_SwapWindow(window);
 	std::this_thread::sleep_for(std::chrono::milliseconds(50));
 }
