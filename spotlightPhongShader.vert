@@ -1,4 +1,4 @@
-// spotlightPhongShader.vert
+//spotlightPhongShader.vert
 #version 330
 
 uniform mat4 model;
@@ -41,5 +41,4 @@ void main(void) {
 	ex_TexCoord = in_TexCoord;
 
     gl_Position = projection * view * vec4(ex_Pos,1.0);
-
 }

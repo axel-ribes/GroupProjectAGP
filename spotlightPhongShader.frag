@@ -74,6 +74,8 @@ void main (void){
 		specularI = specularI * pow(max(dot(viewDir, R),0.0), material.shininess);
 
 		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
+
+
 	}
 	else if (thetaBlue > lightCutOff){ // if the fragment is only int the spotlight of the blue light
 		vec4 ambientI = lightBlue.ambient * material.ambient;
@@ -103,4 +105,5 @@ void main (void){
 	}
 	else // if the fragment isn't in both spotlight
 		out_Color = vec4(lightBlue.ambient.xyz * vec3(texture (textureUnit0, ex_TexCoord)), 1.0);
+
 }
