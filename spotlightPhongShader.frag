@@ -105,4 +105,5 @@ void main (void){
 	}
 	else // if the fragment isn't in both spotlight
 		out_Color = vec4(lightBlue.ambient.xyz * vec3(texture (textureUnit0, ex_TexCoord)), 1.0);
+
 }
