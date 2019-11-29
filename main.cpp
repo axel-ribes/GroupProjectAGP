@@ -1,260 +1,252 @@
+// MD2 animation renderer
+// This demo will load and render an animated MD2 model, an OBJ model and a skybox
+// Most of the OpenGL code for dealing with buffer objects, etc has been moved to a 
+// utility library, to make creation and display of mesh objects as simple as possible
 
-#include <iostream>
-#include <stdlib.h>
-#include <stack>
+// Windows specific: Uncomment the following line to open a console window for debug output
+#if _DEBUG
+#pragma comment(linker, "/subsystem:\"console\" /entry:\"WinMainCRTStartup\"")
+#endif
 
-#include <SDL.h>
-#include <GL/glew.h>
+#include "rt3d.h"
+#include "rt3dObjLoader.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "rt3d.h"
-#include "rt3dObjLoader.h"
+#include <stack>
+#include "md2model.h"
 
-#include <chrono>
-#include <thread>
+//#include <SDL_ttf.h>
 
 using namespace std;
 
 #define DEG_TO_RADIAN 0.017453293
 
-GLuint i = 0;
-GLuint pboTex[5];
-GLuint pboTexSize;
-GLuint pboBuffer;
+// Globals
+// Real programs don't use globals :-D
 
+bool myShaderCheck = false;
 
-GLuint skybox[5];
-GLuint skyboxShader;
-
-GLuint screenWidth = 800;
-GLuint screenHeight = 600;
-float pixelColour[480000] = { 0 };
-
+float attenuationConstant = 1.0f;
+float attenuationLinear = 0.01f;
+float attenuationQuadratic = 0.01f;
 
 GLuint meshIndexCount = 0;
-GLuint meshObjects;
-GLuint texture;
-
-//shaders
-GLuint shaderProgram;
-GLuint spotlightProgram;
-GLuint motionBlur;
+GLuint md2VertCount = 0;
+GLuint meshObjects[2];
+GLuint phongShader;
+GLuint gouraudShader;
+GLuint toonShader;
+GLuint myShader;
+GLuint skyboxProgram;
 
 GLfloat r = 0.0f;
 
-glm::vec3 eye(0.0f, 7.0f, 8.0f);
+glm::vec3 eye(0.0f, 1.0f, 0.0f);
 glm::vec3 at(0.0f, 1.0f, -1.0f);
 glm::vec3 up(0.0f, 1.0f, 0.0f);
-glm::vec3 newCam;
 
-// Blue Light
-rt3d::lightStruct lightBlue = {
+stack<glm::mat4> mvStack;
+
+// TEXTURE STUFF
+GLuint textures[4];
+GLuint skybox[5];
+GLuint labels[5];
+
+rt3d::lightStruct light0 = {
 	{0.3f, 0.3f, 0.3f, 1.0f}, // ambient
-	{0.0f, 0.0f, 1.0f, 1.0f}, // diffuse
-	{0.0f, 0.0f, 1.0f, 1.0f}, // specular
-	{-6.0f, 5.0f, 14.0f, 1.0f}, // position
+	{1.0f, 1.0f, 1.0f, 1.0f}, // diffuse
+	{1.0f, 1.0f, 1.0f, 1.0f}, // specular
+	{-10.0f, 10.0f, 10.0f, 1.0f}  // position
 };
-glm::vec4 lightBluePos(-6.0f, 5.0f, 14.0f, 1.0f);
+//glm::vec4 lightPos(-10.0f, 10.0f, 10.0f, 1.0f); //light position
 
-// Yellow Light
-rt3d::lightStruct lightYellow = {
-	{0.3f, 0.3f, 0.3f, 1.0f}, // ambient
-	{1.0f, 1.0f, 0.0f, 1.0f}, // diffuse
-	{1.0f, 1.0f, 0.0f, 1.0f}, // specular
-	{6.0f, 5.0f, 14.0f, 1.0f}, // position
+rt3d::materialStruct material0 = {
+	{0.2f, 0.4f, 0.2f, 1.0f}, // ambient
+	{0.5f, 1.0f, 0.5f, 1.0f}, // diffuse
+	{0.0f, 0.1f, 0.0f, 1.0f}, // specular
+	2.0f  // shininess
 };
-glm::vec4 lightYellowPos(6.0f, 5.0f, 14.0f, 1.0f);
+rt3d::materialStruct material1 = {
+	{0.4f, 0.4f, 1.0f, 1.0f}, // ambient
+	{0.8f, 0.8f, 1.0f, 1.0f}, // diffuse
+	{0.8f, 0.8f, 0.8f, 1.0f}, // specular
+	1.0f  // shininess
+};
+rt3d::materialStruct myMaterial;
 
-// material
-rt3d::materialStruct materialMap = {
-	{0.9f, 0.9f, 0.9f, 1.0f},
-	{0.95f, 0.95f, 0.95f, 1.0f},
-	{1.0f, 1.0f, 1.0f, 1.0f},
-	1.0f
+
+// md2 stuff
+md2model tmpModel;
+int currentAnim = 0;
+
+//shader
+GLuint myshader;
+
+//float originalPosx, oPosy, oPosZ, oPosE = 0.0;
+//glm::vec4 lightPos1(originalPosx, oPosy, oPosZ, 1.0); //light position
+
+glm::vec4 lightPos(0.0, 4.0, -5.0, 1.0);
+
+rt3d::lightStruct light1 = {
+	{0.5f, 0.5f, 0.5f, 1.0f}, // ambient
+	{1.0f, 1.0f, 1.0f, 1.0f}, // diffuse
+	{1.0f, 1.0f, 1.0f, 1.0f}, // specular
+	{0.0f, 0.0f, 0.0f, 1.0f}  // position
 };
 
-stack<glm::mat4> drawStack;
-float rotationBlueAngle = 0.0f;
-float rotationYellowAngle = 0.0f;
+//Shadow mapping
+unsigned int depthMapFBO;
+glGenFramebuffers(1, &depthMapFBO);
+glBindFramebuffer(GL_FRAMEBUFFER, FramebufferName);
+void RenderScene();
+void BindForWriting();
+void BindForReading(GLenum TextureUnit);
+GLuint m_fbo;
+GLuint m_shadowMap;
 
-// rotation angle of the reflectors
-glm::vec3 rotationBluePlane(0.0f, 0.0f, 0.0f);
-glm::vec3 rotationYellowPlane(0.0f, 0.0f, 0.0f);
-// reflector Normal of the reflectors
-glm::vec3 reflectorBlueNormal(0.0f, 0.0f, 0.0f);
-glm::vec3 reflectorYellowNormal(0.0f, 0.0f, 0.0f);
 
-SDL_Window* setupSDL(SDL_GLContext& context) {
-	if (SDL_Init(SDL_INIT_VIDEO) != 0) {
-		cout << "SDL_Init Error: " << SDL_GetError() << endl;
-		exit(1);
-	}
+// Set up rendering context
+SDL_Window * setupRC(SDL_GLContext &context) {
+	SDL_Window * window;
+	if (SDL_Init(SDL_INIT_VIDEO) < 0) // Initialize video
+		rt3d::exitFatalError("Unable to initialize SDL");
 
-	// set OpenGL version 3
+	// Request an OpenGL 3.0 context.
+
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
 
-	// set double buffer on
-	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);  // double buffering on
+	SDL_GL_SetAttribute(SDL_GL_ALPHA_SIZE, 8); // 8 bit alpha buffering
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLEBUFFERS, 1);
-	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);// antialiasing
+	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4); // Turn on x4 multisampling anti-aliasing (MSAA)
 
-	// create window
-	SDL_Window* window = SDL_CreateWindow("Class test Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
-	if (window == nullptr) {
-		cout << "SDL_CreateWindow Error: " << SDL_GetError() << endl;
-		SDL_Quit();
-		exit(1);
-	}
+	// Create 800x600 window
+	window = SDL_CreateWindow("SDL/GLM/OpenGL Demo", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+		800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	if (!window) // Check window was created OK
+		rt3d::exitFatalError("Unable to create window");
 
-	context = SDL_GL_CreateContext(window);// create context
-
+	context = SDL_GL_CreateContext(window); // Create opengl context and attach to window
+	SDL_GL_SetSwapInterval(1); // set swap buffers to sync with monitor's vertical refresh rate
 	return window;
 }
 
-GLuint loadTexture(const char* fileName) {
-	GLuint textureID;
-	glGenTextures(1, &textureID);
+// A simple texture loading function
+// lots of room for improvement - and better error checking!
+GLuint loadBitmap(char *fname) {
+	GLuint texID;
+	glGenTextures(1, &texID); // generate texture ID
 
 	// load file - using core SDL library
-	SDL_Surface* tmpSurface;
-	tmpSurface = SDL_LoadBMP(fileName);
-	if (tmpSurface == nullptr) {
+	SDL_Surface *tmpSurface;
+	tmpSurface = SDL_LoadBMP(fname);
+	if (!tmpSurface) {
 		std::cout << "Error loading bitmap" << std::endl;
 	}
 
 	// bind texture and set parameters
-	glBindTexture(GL_TEXTURE_2D, textureID);
+	glBindTexture(GL_TEXTURE_2D, texID);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tmpSurface->w, tmpSurface->h, 0,
-		GL_BGR, GL_UNSIGNED_BYTE, tmpSurface->pixels);
+	SDL_PixelFormat *format = tmpSurface->format;
+
+	GLuint externalFormat, internalFormat;
+	if (format->Amask) {
+		internalFormat = GL_RGBA;
+		externalFormat = (format->Rmask < format->Bmask) ? GL_RGBA : GL_BGRA;
+	}
+	else {
+		internalFormat = GL_RGB;
+		externalFormat = (format->Rmask < format->Bmask) ? GL_RGB : GL_BGR;
+	}
+
+	glTexImage2D(GL_TEXTURE_2D, 0, internalFormat, tmpSurface->w, tmpSurface->h, 0,
+		externalFormat, GL_UNSIGNED_BYTE, tmpSurface->pixels);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
-	SDL_FreeSurface(tmpSurface);
-	return textureID;
+	SDL_FreeSurface(tmpSurface); // texture loaded, free the temporary buffer
+	return texID;	// return value of texture ID
 }
 
-GLuint loadCubeMap(const char *fname[6], GLuint *texID)
-{
-	glGenTextures(1, texID);
-	GLenum sides[6] = { GL_TEXTURE_CUBE_MAP_POSITIVE_Z,
-						GL_TEXTURE_CUBE_MAP_NEGATIVE_Z,
-						GL_TEXTURE_CUBE_MAP_POSITIVE_X,
-						GL_TEXTURE_CUBE_MAP_NEGATIVE_X,
-						GL_TEXTURE_CUBE_MAP_POSITIVE_Y,
-						GL_TEXTURE_CUBE_MAP_NEGATIVE_Y };
-	SDL_Surface *tmpSurface;
 
-	glBindTexture(GL_TEXTURE_CUBE_MAP, *texID);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	glTexParameteri(GL_TEXTURE_CUBE_MAP, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+void init(void) {
+	phongShader = rt3d::initShaders("../phong-tex.vert", "../phong-tex.frag");
+	rt3d::setLight(phongShader, light1);
+	rt3d::setMaterial(phongShader, material0);
+	GLuint uniformIndex = glGetUniformLocation(phongShader, "attenuationConstant");
+	glUniform1f(uniformIndex, attenuationConstant);
+	uniformIndex = glGetUniformLocation(phongShader, "attenuationLinear");
+	glUniform1f(uniformIndex, attenuationLinear);
+	uniformIndex = glGetUniformLocation(phongShader, "attenuationQuadratic");
+	glUniform1f(uniformIndex, attenuationQuadratic);
 
-	GLuint externalFormat;
-	for (int i = 0; i < 6; i++)
-	{
-		tmpSurface = SDL_LoadBMP(fname[i]);
-		if (!tmpSurface)
-		{
-			std::cout << "Error loading bitmap" << std::endl;
-			return *texID;
-		}
+	//Gouraud
+	gouraudShader = rt3d::initShaders("../gouraud.vert", "../gouraud.frag");
+	rt3d::setLight(gouraudShader, light1);
+	rt3d::setMaterial(gouraudShader, material0);
+	GLuint uniformIndex2 = glGetUniformLocation(gouraudShader, "attenuationConstant");
+	glUniform1f(uniformIndex2, attenuationConstant);
+	uniformIndex2 = glGetUniformLocation(gouraudShader, "attenuationLinear");
+	glUniform1f(uniformIndex2, attenuationLinear);
+	uniformIndex2 = glGetUniformLocation(gouraudShader, "attenuationQuadratic");
+	glUniform1f(uniformIndex2, attenuationQuadratic);
 
-		SDL_PixelFormat *format = tmpSurface->format;
-		externalFormat = (format->Rmask < format->Bmask) ? GL_RGBA : GL_BGR;
+	//Toon
+	toonShader = rt3d::initShaders("../toon.vert", "../toon.frag");
+	rt3d::setLight(toonShader, light1);
+	rt3d::setMaterial(toonShader, material0);
+	GLuint uniformIndex3 = glGetUniformLocation(toonShader, "attenuationConstant");
+	glUniform1f(uniformIndex3, attenuationConstant);
+	uniformIndex2 = glGetUniformLocation(toonShader, "attenuationLinear");
+	glUniform1f(uniformIndex3, attenuationLinear);
+	uniformIndex2 = glGetUniformLocation(toonShader, "attenuationQuadratic");
+	glUniform1f(uniformIndex3, attenuationQuadratic);
 
-		glTexImage2D(sides[i], 0, GL_RGBA, tmpSurface->w, tmpSurface->h, 0, externalFormat, GL_UNSIGNED_BYTE, tmpSurface->pixels);
 
-		SDL_FreeSurface(tmpSurface);
-	}
-	return *texID;
-}
+	
 
-void init() {
-	shaderProgram = rt3d::initShaders("../phongShader.vert", "../phongShader.frag");
-
-	spotlightProgram = rt3d::initShaders("../spotlightPhongShader.vert", "../spotlightPhongShader.frag");
+	skyboxProgram = rt3d::initShaders("../textured.vert", "../textured.frag");
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
 	vector<GLfloat> tex_coords;
 	vector<GLuint> indices;
-	rt3d::loadObj("../cube.obj", verts, norms, tex_coords, indices);
-	meshIndexCount = indices.size();
-	texture = loadTexture("../Red_bricks.bmp");
-	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
+	rt3d::loadObj("../resources/cube.obj", verts, norms, tex_coords, indices);
+	GLuint size = indices.size();
+	meshIndexCount = size;
+	textures[0] = loadBitmap("../resources/fabric.bmp");
+	meshObjects[0] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), size, indices.data());
 
-	glEnable(GL_DEPTH_TEST);
-	//---------------------------------------------------------------------------------------Motion blur
+	textures[1] = loadBitmap("../resources/hobgoblin2.bmp");
+	meshObjects[1] = tmpModel.ReadMD2Model("../resources/tris.MD2");
+	md2VertCount = tmpModel.getVertDataCount();
+
+	textures[2] = loadBitmap("../resources/colormap.bmp");
+
+	textures[3] = loadBitmap("../resources/Black.bmp");
+
+	verts.clear(); 
+	norms.clear(); 
+	tex_coords.clear();
+	indices.clear();
 	
-	motionBlur = rt3d::initShaders("../Blur.vert", "../Blur.frag");
-	glGenTextures(6, pboTex);
-	GLuint pboTexSize = screenWidth * screenHeight * 3 * sizeof(GLubyte);
-	void* pboData = new GLubyte[pboTexSize];
-	memset(pboData, 0, pboTexSize);
+	rt3d::loadObj("../resources/bunny-5000.obj", verts, norms, tex_coords, indices);
+	size = indices.size();
+	meshIndexCount = size;
+	meshObjects[2] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), nullptr, size, indices.data());
 
-	for (int i = 0; i < 6; i++)
-	{
-		glBindTexture(GL_TEXTURE_2D, pboTex[i]);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pboData);
-	}
+	
 
-	GLuint uniformIndex = glGetUniformLocation(motionBlur, "textureUnit0");
-	glUniform1i(uniformIndex, 0);
-	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit1");
-	glUniform1i(uniformIndex, 1);
-	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit2");
-	glUniform1i(uniformIndex, 2);
-	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit3");
-	glUniform1i(uniformIndex, 3);
-	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit4");
-	glUniform1i(uniformIndex, 4);
-	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit5");
-	glUniform1i(uniformIndex, 5);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, pboTex[0]);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, pboTex[1]);
-	glActiveTexture(GL_TEXTURE2);
-	glBindTexture(GL_TEXTURE_2D, pboTex[2]);
-	glActiveTexture(GL_TEXTURE3);
-	glBindTexture(GL_TEXTURE_2D, pboTex[3]);
-	glActiveTexture(GL_TEXTURE4);
-	glBindTexture(GL_TEXTURE_2D, pboTex[4]);
-	glActiveTexture(GL_TEXTURE5);
-	glBindTexture(GL_TEXTURE_2D, pboTex[5]);
-
-
-	//----------------------------------------------------------------------------------Creating PBO
-	glGenBuffers(1, &pboBuffer);
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, pboBuffer);
-	glBufferData(GL_PIXEL_PACK_BUFFER, pboTexSize, pboData, GL_DYNAMIC_COPY);			//GLenum target, GLsizeiptr size, const void * data, GLenum usage); Size = size in bytes of the buffer object's new data store. data =  data that will be copied into the data store
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	delete pboData;
-
-	skyboxShader = rt3d::initShaders("../cubeMap.vert", "../cubeMap.frag");
-
-	const char *cubeTexFiles[6] = {
-		"../resources/skybox/Town_bk.bmp",
-		"../resources/skybox/Town_ft.bmp",
-		"../resources/skybox/Town_rt.bmp",
-		"../resources/skybox/Town_lf.bmp",
-		"../resources/skybox/Town_up.bmp",
-		"../resources/skybox/Town_dn.bmp"
-	};
-	loadCubeMap(cubeTexFiles, &skybox[0]);
+	skybox[0] = loadBitmap("../resources/Town-skybox/Town_ft.bmp");
+	skybox[1] = loadBitmap("../resources/Town-skybox/Town_bk.bmp");
+	skybox[2] = loadBitmap("../resources/Town-skybox/Town_lf.bmp");
+	skybox[3] = loadBitmap("../resources/Town-skybox/Town_rt.bmp");
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -262,312 +254,379 @@ void init() {
 }
 
 glm::vec3 moveForward(glm::vec3 pos, GLfloat angle, GLfloat d) {
-	return glm::vec3(pos.x + d * std::sin(r * DEG_TO_RADIAN), pos.y, pos.z - d * std::cos(r * DEG_TO_RADIAN));
+	return glm::vec3(pos.x + d * std::sin(r*DEG_TO_RADIAN), pos.y, pos.z - d * std::cos(r*DEG_TO_RADIAN));
 }
 
 glm::vec3 moveRight(glm::vec3 pos, GLfloat angle, GLfloat d) {
-	return glm::vec3(pos.x + d * std::cos(r * DEG_TO_RADIAN), pos.y, pos.z + d * std::sin(r * DEG_TO_RADIAN));
+	return glm::vec3(pos.x + d * std::cos(r*DEG_TO_RADIAN), pos.y, pos.z + d * std::sin(r*DEG_TO_RADIAN));
 }
 
-void movement() {
-	const Uint8* keys = SDL_GetKeyboardState(NULL);
-	if (keys[SDL_SCANCODE_W]) eye = moveForward(eye, r, 0.5f);
-	if (keys[SDL_SCANCODE_S]) eye = moveForward(eye, r, -0.5f);
-	if (keys[SDL_SCANCODE_D]) eye = moveRight(eye, r, 0.5f);
-	if (keys[SDL_SCANCODE_A]) eye = moveRight(eye, r, -0.5f);
-	if (keys[SDL_SCANCODE_R]) eye.y += 0.1f;
-	if (keys[SDL_SCANCODE_F]) eye.y -= 0.1f;
-	if (keys[SDL_SCANCODE_COMMA]) r -= 0.5f;
-	if (keys[SDL_SCANCODE_PERIOD]) r += 0.5f;
 
-	if (keys[SDL_SCANCODE_UP]) {
-		if (rotationBluePlane.x >= -1) {
-			rotationBluePlane.x -= 0.5;
-		}
-	}
-	if (keys[SDL_SCANCODE_RIGHT]) {
-		if (rotationBluePlane.z >= -1) {
-			rotationBluePlane.z -= 0.5;
-		}
-	}
-	if (keys[SDL_SCANCODE_LEFT]) {
-		if (rotationBluePlane.z <= 1) {
-			rotationBluePlane.z += 0.5;
-		}
-	}
-	if (keys[SDL_SCANCODE_DOWN]) {
-		if (rotationBluePlane.x <= 1) {
-			rotationBluePlane.x += 0.5;
-		}
-	}
-	reflectorBlueNormal.z = ((abs(rotationBluePlane.x) * 45.0f) * 1) / 180;
-	if (rotationBluePlane.x < 0)
-		reflectorBlueNormal.z += 1;
-	else
-		reflectorBlueNormal.z -= 1;
+//Depth map texture
+//const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
 
-	reflectorBlueNormal.x = ((rotationBluePlane.z * 45.0f) * 0.5) / 90;
-	if (rotationBluePlane.x < 0)
-		reflectorBlueNormal.x = -reflectorBlueNormal.x;
+/*unsigned int depthMap;
+//glGenTextures(1, &depthMap);
+glBindTexture(GL_TEXTURE_2D, depthMap);
+glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+	SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);*/
 
-	if (abs(rotationBluePlane.x) < abs(rotationBluePlane.z))
-		rotationBlueAngle = abs(rotationBluePlane.z) * 45.0f;
-	else
-		rotationBlueAngle = abs(rotationBluePlane.x) * 45.0f;
-	if (rotationBlueAngle > 45.0f)
-		rotationBlueAngle = 45.0f;
+void update(void) {
+	const Uint8 *keys = SDL_GetKeyboardState(NULL);
+	if (keys[SDL_SCANCODE_I]) eye = moveForward(eye, r, 0.1f);
+	if (keys[SDL_SCANCODE_J]) eye = moveForward(eye, r, -0.1f);
+	if (keys[SDL_SCANCODE_K]) eye = moveRight(eye, r, -0.1f);
+	if (keys[SDL_SCANCODE_L]) eye = moveRight(eye, r, 0.1f);
 
+	if (keys[SDL_SCANCODE_COMMA]) r -= 1.0f;
+	if (keys[SDL_SCANCODE_PERIOD]) r += 1.0f;
 
-	if (keys[SDL_SCANCODE_I]) {
-		if (rotationYellowPlane.x >= -1) {
-			rotationYellowPlane.x -= 0.3;
-		}
+	//light movement
+	if (keys[SDL_SCANCODE_W]) lightPos[2] -= 0.1f;
+	if (keys[SDL_SCANCODE_A]) lightPos[0] -= 0.1f;
+	if (keys[SDL_SCANCODE_S]) lightPos[2] += 0.1f;
+	if (keys[SDL_SCANCODE_D]) lightPos[0] += 0.1f;
+
+	//shader control
+	if (keys[SDL_SCANCODE_2])
+	{
+		myMaterial = material0;
+		myShader = phongShader;
+		material0.specular[0] = 0.1;
+		material0.specular[1] = 0.1;
+		material0.specular[2] = 0.1;
+		material0.diffuse[0] = 3.0;
+		material0.diffuse[1] = 3.0;
+		material0.diffuse[2] = 3.0;
+		material0.shininess = 0.2;
 	}
-	if (keys[SDL_SCANCODE_L]) {
-		if (rotationYellowPlane.z >= -1) {
-			rotationYellowPlane.z -= 0.3;
-		}
-	}
-	if (keys[SDL_SCANCODE_J]) {
-		if (rotationYellowPlane.z <= 1) {
-			rotationYellowPlane.z += 0.3;
-		}
-	}
-	if (keys[SDL_SCANCODE_K]) {
-		if (rotationYellowPlane.x <= 1) {
-			rotationYellowPlane.x += 0.3;
-		}
-	}
-	reflectorYellowNormal.z = ((abs(rotationYellowPlane.x) * 45.0f) * 1) / 180;
-	if (rotationYellowPlane.x < 0)
-		reflectorYellowNormal.z += 1;
-	else
-		reflectorYellowNormal.z -= 1;
 
-	reflectorYellowNormal.x = ((rotationYellowPlane.z * 45.0f) * 0.5) / 90;
-	if (rotationYellowPlane.x < 0)
-		reflectorYellowNormal.x = -reflectorYellowNormal.x;
+	if (keys[SDL_SCANCODE_3])
+	{
+		myMaterial = material0;
+		myShader = phongShader;
+		material0.specular[0] = 3.0;
+		material0.specular[1] = 3.0;
+		material0.specular[2] = 3.0;
+		material0.diffuse[0] = 0.1;
+		material0.diffuse[1] = 0.1;
+		material0.diffuse[2] = 0.1;
+		material0.shininess = 2.0;
+	}
 
-	if (abs(rotationYellowPlane.x) < abs(rotationYellowPlane.z))
-		rotationYellowAngle = abs(rotationYellowPlane.z) * 45.0f;
-	else
-		rotationYellowAngle = abs(rotationYellowPlane.x) * 45.0f;
-	if (rotationYellowAngle > 45.0f)
-		rotationYellowAngle = 45.0f;
+	if (keys[SDL_SCANCODE_4])
+	{
+		myMaterial = material0;
+		myShader = gouraudShader;
+		material0.specular[0] = 3.0;
+		material0.specular[1] = 3.0;
+		material0.specular[2] = 3.0;
+		material0.diffuse[0] = 0.1;
+		material0.diffuse[1] = 0.1;
+		material0.diffuse[2] = 0.1;
+		material0.shininess = 2.0;
+	}
+
+	if (keys[SDL_SCANCODE_3])
+	{
+		myMaterial = material0;
+		myShader = toonShader;
+		material0.specular[0] = 3.0;
+		material0.specular[1] = 3.0;
+		material0.specular[2] = 3.0;
+		material0.diffuse[0] = 0.1;
+		material0.diffuse[1] = 0.1;
+		material0.diffuse[2] = 0.1;
+		material0.shininess = 2.0;
+	}
+
+
+	
+	if (keys[SDL_SCANCODE_U]) lightPos[1] += 0.1f;
+		if (keys[SDL_SCANCODE_H]) lightPos[1] -= 0.1f;
+
+	if (keys[SDL_SCANCODE_1]) {
+		glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+		glDisable(GL_CULL_FACE);
+	}
+	if (keys[SDL_SCANCODE_2]) {
+		glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		glEnable(GL_CULL_FACE);
+	}
+	if (keys[SDL_SCANCODE_Z]) {
+		if (--currentAnim < 0) currentAnim = 19;
+		cout << "Current animation: " << currentAnim << endl;
+	}
+	if (keys[SDL_SCANCODE_X]) {
+		if (++currentAnim >= 20) currentAnim = 0;
+		cout << "Current animation: " << currentAnim << endl;
+	}
 }
 
-void draw(SDL_Window* window) {
-	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
+//Render Scene for shadow mapping
+void RenderScene()
+{
+	//Depth map texture
+	const unsigned int SHADOW_WIDTH = 1024, SHADOW_HEIGHT = 1024;
+	//unsigned int depthMap;
+//glGenTextures(1, &depthMap);
+	glBindTexture(GL_TEXTURE_2D, depthMapFBO);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT,
+		SHADOW_WIDTH, SHADOW_HEIGHT, 0, GL_DEPTH_COMPONENT, GL_FLOAT, NULL);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
+	glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, depthMapFBO, 0);
+
+	glDrawBuffer(GL_NONE);
+
+	//shadow mapping code
+//First render
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	ConfigureShaderAndMatrices(); //ConfigureShaderMatrices();
+	RenderScene();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//render with shadow mapping
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	ConfigureShaderAndMatrices();
+	glBindTexture(GL_TEXTURE_2D, depthMapFBO);
+	RenderScene();
+
+	glm::vec3 lightInvDir = glm::vec3(0.5f, 2, 2);
+
+	// Compute the MVP matrix from the light's point of view
+	glm::mat4 depthProjectionMatrix = glm::ortho<float>(-10, 10, -10, 10, -10, 20);
+	glm::mat4 depthViewMatrix = glm::lookAt(lightInvDir, glm::vec3(0, 0, 0), glm::vec3(0, 1, 0));
+	glm::mat4 depthModelMatrix = glm::mat4(1.0);
+	glm::mat4 depthMVP = depthProjectionMatrix * depthViewMatrix * depthModelMatrix;
+
+	// Send our transformation to the currently bound shader,
+	// in the "MVP" uniform
+	glUniformMatrix4fv(depthMatrixID, 1, GL_FALSE, &depthMVP[0][0]);
+	glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, m_shadowMap, 0);
+
+	//Not a clue where this goes
+	glm::mat4 biasMatrix(
+		0.5, 0.0, 0.0, 0.0,
+		0.0, 0.5, 0.0, 0.0,
+		0.0, 0.0, 0.5, 0.0,
+		0.5, 0.5, 0.5, 1.0
+	);
+	glm::mat4 depthBiasMVP = biasMatrix * depthMVP;
+
+	
+}
+
+
+void draw(SDL_Window * window) 
+{
+	if (myShaderCheck == false)
+	{
+		myShader = phongShader;
+		myMaterial = material0;
+		myShaderCheck = true;
+	}
+	
+
+	// clear the screen
+	glEnable(GL_CULL_FACE);
+	glClearColor(0.5f, 0.5f, 0.5f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glm::mat4 model(1.0);
-	drawStack.push(model);
+	glm::mat4 projection(1.0);
+	projection = glm::perspective(float(60.0f*DEG_TO_RADIAN), 800.0f / 600.0f, 1.0f, 150.0f);
+	
+	
+	GLfloat scale(1.0f); // just to allow easy scaling of complete scene
+
+	glm::mat4 modelview(1.0); // set base position for scene
+	mvStack.push(modelview);
 
 	at = moveForward(eye, r, 1.0f);
-	glm::mat4 view = glm::lookAt(eye, at, up);
-	rt3d::setUniformMatrix4fv(shaderProgram, "view", glm::value_ptr(view));
+	mvStack.top() = glm::lookAt(eye, at, up);
 
-	glm::mat4 projection = glm::perspective(float(60.0f * DEG_TO_RADIAN), 800.0f / 600.0f, 1.0f, 150.0f);
 
-	//---------------------------------------------------------------------------------Skybox
-	glUseProgram(skyboxShader);
-	rt3d::setUniformMatrix4fv(skyboxShader, "projection", glm::value_ptr(projection));
-	glDepthMask(GL_FALSE);
-	glm::mat3 mvRotOnlyMat3 = glm::mat3(drawStack.top());
-	drawStack.push(glm::mat4(mvRotOnlyMat3));
-	glCullFace(GL_FRONT);
-	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox[0]);
-	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(1.5f, 1.5f, 1.5f));
-	rt3d::setUniformMatrix4fv(skyboxShader, "modelview", glm::value_ptr(drawStack.top()));
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
-	glCullFace(GL_BACK);
-	drawStack.pop();
+	// draw a skybox
+	glUseProgram(skyboxProgram);
+	rt3d::setUniformMatrix4fv(skyboxProgram, "projection", glm::value_ptr(projection));
+
+	glDepthMask(GL_FALSE); // make sure depth test is off
+	glm::mat3 mvRotOnlyMat3 = glm::mat3(mvStack.top());
+	mvStack.push(glm::mat4(mvRotOnlyMat3));
+
+	// front
+	mvStack.push(mvStack.top());
+	glBindTexture(GL_TEXTURE_2D, skybox[0]);
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(2.0f, 2.0f, 2.0f));
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(0.0f, 0.0f, -2.0f));
+	rt3d::setUniformMatrix4fv(skyboxProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	// back
+	mvStack.push(mvStack.top());
+	glBindTexture(GL_TEXTURE_2D, skybox[1]);
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(2.0f, 2.0f, 2.0f));
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(0.0f, 0.0f, 2.0f));
+	rt3d::setUniformMatrix4fv(skyboxProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	// left
+	mvStack.push(mvStack.top());
+	glBindTexture(GL_TEXTURE_2D, skybox[2]);
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(2.0f, 2.0f, 2.0f));
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(-2.0f, 0.0f, 0.0f));
+	rt3d::setUniformMatrix4fv(skyboxProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	// right
+	mvStack.push(mvStack.top());
+	glBindTexture(GL_TEXTURE_2D, skybox[3]);
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(2.0f, 2.0f, 2.0f));
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(2.0f, 0.0f, 0.0f));
+	rt3d::setUniformMatrix4fv(skyboxProgram, "modelview", glm::value_ptr(mvStack.top()));
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	mvStack.pop();
+
+	// back to remainder of rendering
+	glDepthMask(GL_TRUE); // make sure depth test is on
+
+	glUseProgram(toonShader);																				//||
+	rt3d::setUniformMatrix4fv(toonShader, "projection", glm::value_ptr(projection));						//||
+
+	//second light
+	glm::vec4 tmp1 = mvStack.top() * lightPos;
+	light1.position[0] = tmp1.x;
+	light1.position[1] = tmp1.y;
+	light1.position[2] = tmp1.z;
+	rt3d::setLightPos(toonShader, glm::value_ptr(tmp1));														//||
+	
+	// draw a cube for ground plane
+	glUseProgram(phongShader);																				//||
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(-10.0f, -0.1f, -10.0f));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(20.0f, 0.1f, 20.0f));
+	rt3d::setUniformMatrix4fv(myShader, "modelview", glm::value_ptr(mvStack.top()));						//||
+	rt3d::setMaterial(phongShader, myMaterial);																//||
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	// cube for toon stuff
+	glUseProgram(toonShader);																				//||
+	glBindTexture(GL_TEXTURE_2D, textures[0]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(0.0f, 4.0f, -10.0f));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(1.0f, 1.0f, 1.0f));
+	rt3d::setUniformMatrix4fv(toonShader, "modelview", glm::value_ptr(mvStack.top()));						//||
+	rt3d::setMaterial(toonShader, myMaterial);																//||
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	//bunny
+	glUseProgram(toonShader);
+	glBindTexture(GL_TEXTURE_2D, textures[2]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(0.0, 0.0, -5.0));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(15.0, 15.0, 15.0));
+	rt3d::setUniformMatrix4fv(toonShader, "modelview", glm::value_ptr(mvStack.top()));						//||
+	rt3d::setMaterial(toonShader, myMaterial);																//||
+	rt3d::drawIndexedMesh(meshObjects[2], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	//bunny 2
+	glCullFace(GL_FRONT); //Front face cull
+	glUseProgram(toonShader); 
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(0.0, 0.0, -5.0));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(16.0, 16.0, 16.0));
+	rt3d::setUniformMatrix4fv(toonShader, "modelview", glm::value_ptr(mvStack.top()));						//||
+	rt3d::setMaterial(toonShader, myMaterial);																//||
+	rt3d::drawIndexedMesh(meshObjects[2], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+	glCullFace(GL_BACK); //backface cull
+	glDisable(GL_DEPTH_TEST); //disable z buffer 
+
+		
+	glUseProgram(phongShader);//Use the texture shader again to draw the labelled cube							//||
+	rt3d::setUniformMatrix4fv(phongShader, "projection", glm::value_ptr(projection));							//||
+	// draw a cube block on top of ground plane
+	// with text texture 
+	//Keep the texture-only shader
+	glDepthMask(GL_FALSE); // make sure writing to update depth test is off
+	glBindTexture(GL_TEXTURE_2D, labels[0]);
+	mvStack.push(mvStack.top());
+	mvStack.top() = glm::translate(mvStack.top(), glm::vec3(lightPos.x, lightPos.y, lightPos.z));
+	mvStack.top() = glm::scale(mvStack.top(), glm::vec3(1.0f, 1.0f, 0.0f));	
+	rt3d::setUniformMatrix4fv(phongShader, "modelview", glm::value_ptr(mvStack.top()));						//||
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
+	mvStack.pop();
+
+	//shadow mapping code
+	//First render
+	glViewport(0, 0, SHADOW_WIDTH, SHADOW_HEIGHT);
+	glBindFramebuffer(GL_FRAMEBUFFER, depthMapFBO);
+	glClear(GL_DEPTH_BUFFER_BIT);
+	ConfigureShaderAndMatrices(); //ConfigureShaderMatrices();
+	RenderScene();
+	glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	//render with shadow mapping
+	glViewport(0, 0, SCR_WIDTH, SCR_HEIGHT);
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	ConfigureShaderAndMatrices();
+	glBindTexture(GL_TEXTURE_2D, depthMap);
+	RenderScene();
+	//RenderScene()?
+	// remember to use at least one pop operation per push...
+	mvStack.pop(); // initial matrix
 	glDepthMask(GL_TRUE);
 
-
-	glm::vec4 tmpBlue = drawStack.top() * lightBluePos;
-	lightBlue.position[0] = tmpBlue.x;
-	lightBlue.position[1] = tmpBlue.y;
-	lightBlue.position[2] = tmpBlue.z;
-
-	glm::vec4 tmpYellow = drawStack.top() * lightYellowPos;
-	lightYellow.position[0] = tmpYellow.x;
-	lightYellow.position[1] = tmpYellow.y;
-	lightYellow.position[2] = tmpYellow.z;
-
-	glUseProgram(spotlightProgram);
-
-	// Set blue light
-	int uniformIndex = glGetUniformLocation(spotlightProgram, "lightBlue.ambient");
-	glUniform4fv(uniformIndex, 1, lightBlue.ambient);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightBlue.diffuse");
-	glUniform4fv(uniformIndex, 1, lightBlue.diffuse);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightBlue.specular");
-	glUniform4fv(uniformIndex, 1, lightBlue.specular);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightBluePosition");
-	glUniform4fv(uniformIndex, 1, lightBlue.position);
-
-	// Set yellow light
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellow.ambient");
-	glUniform4fv(uniformIndex, 1, lightYellow.ambient);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellow.diffuse");
-	glUniform4fv(uniformIndex, 1, lightYellow.diffuse);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellow.specular");
-	glUniform4fv(uniformIndex, 1, lightYellow.specular);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "lightYellowPosition");
-	glUniform4fv(uniformIndex, 1, lightYellow.position);
-
-	rt3d::setUniformMatrix4fv(spotlightProgram, "view", glm::value_ptr(view));
-
-	rt3d::setUniformMatrix4fv(spotlightProgram, "projection", glm::value_ptr(projection));
-
-	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalBlueLightPos"), 1, glm::value_ptr(tmpBlue));
-	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalYellowLightPos"), 1, glm::value_ptr(tmpYellow));
-
-	glUniform3f(glGetUniformLocation(spotlightProgram, "viewPos"), eye.x, eye.y, eye.z);
-
-	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionBlue"), -8.0f, -2.0f, -3.0f);
-	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPositionYellow"), 8.0f, -2.0f, -3.0f);
-
-	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorBlueNormal"), 1, glm::value_ptr(reflectorBlueNormal));
-	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorYellowNormal"), 1, glm::value_ptr(reflectorYellowNormal));
-
-	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(5.5f)));
-
-	glBindTexture(GL_TEXTURE_2D, texture);
-	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(0.0f, 7.0f, -20.0f));
-	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(20.0f, 10.0f, 3.0f));
-	rt3d::setUniformMatrix4fv(spotlightProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(spotlightProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
-	drawStack.pop();
-
-	// Reflector light blue
-	glUseProgram(shaderProgram);
-	rt3d::setLight(shaderProgram, lightBlue);
-	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmpBlue));
-
-	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(eye));
-
-	rt3d::setUniformMatrix4fv(shaderProgram, "projection", glm::value_ptr(projection));
-
-	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(-6.0f, -2.0f, -3.0f));
-	if (rotationBluePlane.x != 0 || rotationBluePlane.z != 0)
-		drawStack.top() = glm::rotate(drawStack.top(), float(rotationBlueAngle * DEG_TO_RADIAN), rotationBluePlane);
-	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
-	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
-	drawStack.pop();
-
-	// blue light position
-	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(lightBluePos[0], lightBluePos[1], lightBluePos[2]));
-	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(1.0f, 1.0f, 1.0f));
-	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
-	drawStack.pop();
-
-	// Yellow light
-	rt3d::setLight(shaderProgram, lightYellow);
-	rt3d::setLightPos(shaderProgram, glm::value_ptr(tmpYellow));
-
-	glUniform3fv(glGetUniformLocation(shaderProgram, "viewPos"), 1, glm::value_ptr(eye));
-
-	rt3d::setUniformMatrix4fv(shaderProgram, "projection", glm::value_ptr(projection));
-
-	drawStack.push(drawStack.top());
-	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(6.0f, -2.0f, -3.0f));
-	if (rotationYellowPlane.x != 0 || rotationYellowPlane.z != 0)
-		drawStack.top() = glm::rotate(drawStack.top(), float(rotationYellowAngle * DEG_TO_RADIAN), rotationYellowPlane);
-	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
-	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
-	drawStack.pop();
-
-
-	//---------------------------------------------------------------------------------------------------MOTION BLUR
-	
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, pboBuffer);
-	glReadPixels(0, 0, screenWidth, screenHeight, GL_RGB, GL_UNSIGNED_BYTE, NULL);						//FBO to PBO
-
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-
-	// -------------------------------------------------------------------------------------------------Copy PBO to the texture
-	glBindTexture(GL_TEXTURE_2D, pboTex[i]);															// Needs to increase i each frame, to change out the texture that the pbo is copying to
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, pboBuffer);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
-	glBindBuffer(GL_PIXEL_UNPACK_BUFFER, 0);
-
-	
-	
-
-	glUseProgram(motionBlur);
-	rt3d::setUniformMatrix4fv(motionBlur, "projection", glm::value_ptr(projection));
-	model = glm::translate(glm::mat4(1.0), glm::vec3(0.0, 0.0, -10.0f));								//Position quad
-	model = glm::scale(model, glm::vec3(7.79, -5.85f, 0.1f));											//Scale quad
-	rt3d::setUniformMatrix4fv(motionBlur, "modelview", glm::value_ptr(model));
-
-	//---------------------------------------------------------------------------------------------------bind textures to texture 
-
-	glActiveTexture(GL_TEXTURE0);
-	glDisable(GL_CULL_FACE);
-	glDisable(GL_DEPTH_TEST);																			//To make sure quad is drawn on top of the scene
-	rt3d::drawIndexedMesh(meshObjects, 6, GL_TRIANGLES);	
-	glBindTexture(GL_TEXTURE_2D, 0);
-	   
-	i++;
-	if (i >= 6) i = 0;
-
-	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
-	glReadPixels(0, 0, screenWidth, screenHeight, GL_GREEN, GL_FLOAT, pixelColour);						//Reading green pixel data into pixelColour. 
-
-	for (int i = 0; i < 480000; i++)
-	{
-		if (pixelColour[i] > 0.998)																		//Values not exact as converted from being stored as ints
-		{			
-			cout << "green \n\n";
-		}
-	}
-	
-	SDL_GL_SwapWindow(window);
-	std::this_thread::sleep_for(std::chrono::milliseconds(50));
+	SDL_GL_SwapWindow(window); // swap buffers
 }
 
-int main(int argc, char* argv[]) {
-	SDL_Window* window;
-	SDL_GLContext context;
-	window = setupSDL(context);
 
-	GLenum glew(glewInit());
-	if (glew != GLEW_OK) {
-		cout << "glewInit() Error: " << glewGetErrorString(glew) << endl;
-		SDL_GL_DeleteContext(context);
-		SDL_DestroyWindow(window);
-		SDL_Quit();
-		return 1;
+// Program entry point - SDL manages the actual WinMain entry point for us
+int main(int argc, char *argv[]) {
+	SDL_Window * hWindow; // window handle
+	SDL_GLContext glContext; // OpenGL context handle
+	hWindow = setupRC(glContext); // Create window and render context 
+
+	// Required on Windows *only* init GLEW to access OpenGL beyond 1.1
+	glewExperimental = GL_TRUE;
+	GLenum err = glewInit();
+	if (GLEW_OK != err) { // glewInit failed, something is seriously wrong
+		std::cout << "glewInit failed, aborting." << endl;
+		exit(1);
 	}
+	cout << glGetString(GL_VERSION) << endl;
 
 	init();
-	bool finish = false;
-	SDL_Event events;
-	while (!finish) {
-		while (SDL_PollEvent(&events)) {
-			if (events.type == SDL_QUIT)
-				finish = true;
-		}
 
-		movement();
-		draw(window);
+	bool running = true; // set running to true
+	SDL_Event sdlEvent;  // variable to detect SDL events
+	while (running) {	// the event loop
+		while (SDL_PollEvent(&sdlEvent)) {
+			if (sdlEvent.type == SDL_QUIT)
+				running = false;
+		}
+		update();
+		draw(hWindow); // call the draw function
 	}
 
-	// destroy context and window 
-	SDL_GL_DeleteContext(context);
-	SDL_DestroyWindow(window);
+	SDL_GL_DeleteContext(glContext);
+	SDL_DestroyWindow(hWindow);
 	SDL_Quit();
 	return 0;
 }
