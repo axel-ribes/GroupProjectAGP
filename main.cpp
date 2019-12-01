@@ -33,13 +33,15 @@ float pixelColour[480000] = { 0 };
 
 
 GLuint meshIndexCount = 0;
-GLuint meshObjects;
-GLuint texture;
+GLuint meshObjects[2];
+GLuint texture[2];
 
+float dispersionSize = 0.0001;
 //shaders
 GLuint shaderProgram;
 GLuint spotlightProgram;
 GLuint motionBlur;
+GLuint ChromaticDispersionShaderProgram;
 
 GLfloat r = 0.0f;
 
@@ -74,6 +76,36 @@ rt3d::materialStruct materialMap = {
 	1.0f
 };
 
+//for bunny
+rt3d::materialStruct material0 = { //glossy
+	{0.2f, 0.4f, 0.2f, 1.0f}, // ambient
+	{0.8f, 1.8f, 0.8f, 1.0f}, // diffuse
+	{0.5f, 0.9f, 0.5f, 1.0f}, // specular
+	5.0f  // shininess
+};
+
+//light stuff
+rt3d::lightStruct light0 = {
+	{0.4f, 0.4f, 0.4f, 1.0f}, // ambient
+	{1.0f, 1.0f, 1.0f, 1.0f}, // diffuse
+	{1.0f, 1.0f, 1.0f, 1.0f}, // specular
+	{-5.0f, 2.0f, 2.0f, 1.0f}  // position
+};
+
+rt3d::materialStruct basicmaterial = { //white for bunny
+	{1.0f, 1.0f, 1.0f, 1.0f}, // ambient
+	{1.0f, 1.0f, 1.0f, 1.0f}, // diffuse
+	{1.0f, 1.0f, 1.0f, 1.0f}, // specular
+	1.0f  // shininess
+};
+
+glm::vec4 lightPos(-5.0f, 2.0f, 2.0f, 1.0f); //light position
+// light attenuation
+float attConstant = 1.0f;
+float attLinear = 0.01f;
+float attQuadratic = 0.01f;
+
+GLuint toonIndexCount = 0;
 stack<glm::mat4> drawStack;
 float rotationBlueAngle = 0.0f;
 float rotationYellowAngle = 0.0f;
@@ -178,23 +210,37 @@ GLuint loadCubeMap(const char *fname[6], GLuint *texID)
 }
 
 void init() {
-	shaderProgram = rt3d::initShaders("../phongShader.vert", "../phongShader.frag");
+	shaderProgram = rt3d::initShaders("../GroupProjectAGP/phongShader.vert", "../GroupProjectAGP/phongShader.frag");
 
-	spotlightProgram = rt3d::initShaders("../spotlightPhongShader.vert", "../spotlightPhongShader.frag");
+	spotlightProgram = rt3d::initShaders("../GroupProjectAGP/spotlightPhongShader.vert", "../GroupProjectAGP/spotlightPhongShader.frag");
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
 	vector<GLfloat> tex_coords;
 	vector<GLuint> indices;
-	rt3d::loadObj("../cube.obj", verts, norms, tex_coords, indices);
+	rt3d::loadObj("../GroupProjectAGP/cube.obj", verts, norms, tex_coords, indices);
 	meshIndexCount = indices.size();
-	texture = loadTexture("../Red_bricks.bmp");
-	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
+	texture[0] = loadTexture("../GroupProjectAGP/Red_bricks.bmp");
+	meshObjects[0] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
+
+	ChromaticDispersionShaderProgram = rt3d::initShaders("../GroupProjectAGP/phongEnvMap.vert", "../GroupProjectAGP/phongEnvMap.frag");
+	rt3d::setLight(ChromaticDispersionShaderProgram, light0);
+	rt3d::setMaterial(ChromaticDispersionShaderProgram, material0);
+	GLuint uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "attConst");
+	glUniform1f(uniformIndex, attConstant);
+	uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "attLinear");
+	glUniform1f(uniformIndex, attLinear);
+	uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "attQuadratic");
+	glUniform1f(uniformIndex, attQuadratic);
+	uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "textureUnit0");
+	glUniform1i(uniformIndex, 0);
+	uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "textureUnit1");
+	glUniform1i(uniformIndex, 1);
 
 	glEnable(GL_DEPTH_TEST);
 	//---------------------------------------------------------------------------------------Motion blur
 	
-	motionBlur = rt3d::initShaders("../Blur.vert", "../Blur.frag");
+	motionBlur = rt3d::initShaders("../GroupProjectAGP/Blur.vert", "../GroupProjectAGP/Blur.frag");
 	glGenTextures(6, pboTex);
 	GLuint pboTexSize = screenWidth * screenHeight * 3 * sizeof(GLubyte);
 	void* pboData = new GLubyte[pboTexSize];
@@ -210,7 +256,7 @@ void init() {
 		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, screenWidth, screenHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, pboData);
 	}
 
-	GLuint uniformIndex = glGetUniformLocation(motionBlur, "textureUnit0");
+	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit0");
 	glUniform1i(uniformIndex, 0);
 	uniformIndex = glGetUniformLocation(motionBlur, "textureUnit1");
 	glUniform1i(uniformIndex, 1);
@@ -244,17 +290,25 @@ void init() {
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	delete pboData;
 
-	skyboxShader = rt3d::initShaders("../cubeMap.vert", "../cubeMap.frag");
+	skyboxShader = rt3d::initShaders("../GroupProjectAGP/cubeMap.vert", "../GroupProjectAGP/cubeMap.frag");
 
 	const char *cubeTexFiles[6] = {
-		"../resources/skybox/Town_bk.bmp",
-		"../resources/skybox/Town_ft.bmp",
-		"../resources/skybox/Town_rt.bmp",
-		"../resources/skybox/Town_lf.bmp",
-		"../resources/skybox/Town_up.bmp",
-		"../resources/skybox/Town_dn.bmp"
+		"../GroupProjectAGP/resources/skybox/Town_bk.bmp",
+		"../GroupProjectAGP/resources/skybox/Town_ft.bmp",
+		"../GroupProjectAGP/resources/skybox/Town_rt.bmp",
+		"../GroupProjectAGP/resources/skybox/Town_lf.bmp",
+		"../GroupProjectAGP/resources/skybox/Town_up.bmp",
+		"../GroupProjectAGP/resources/skybox/Town_dn.bmp"
 	};
 	loadCubeMap(cubeTexFiles, &skybox[0]);
+
+	verts.clear();
+	norms.clear();
+	tex_coords.clear();
+	indices.clear();
+	rt3d::loadObj("../GroupProjectAGP/bunny-5000.obj", verts, norms, tex_coords, indices);
+	toonIndexCount = indices.size();
+	meshObjects[1] = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), nullptr, toonIndexCount, indices.data());
 
 	glEnable(GL_DEPTH_TEST);
 	glEnable(GL_BLEND);
@@ -300,6 +354,10 @@ void movement() {
 			rotationBluePlane.x += 0.5;
 		}
 	}
+	//interact with chromatic dispersion
+	if (keys[SDL_SCANCODE_KP_PLUS]) dispersionSize += 0.0001;
+	if (keys[SDL_SCANCODE_KP_MINUS]) dispersionSize -= 0.0001;
+
 	reflectorBlueNormal.z = ((abs(rotationBluePlane.x) * 45.0f) * 1) / 180;
 	if (rotationBluePlane.x < 0)
 		reflectorBlueNormal.z += 1;
@@ -379,7 +437,7 @@ void draw(SDL_Window* window) {
 	glBindTexture(GL_TEXTURE_CUBE_MAP, skybox[0]);
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(1.5f, 1.5f, 1.5f));
 	rt3d::setUniformMatrix4fv(skyboxShader, "modelview", glm::value_ptr(drawStack.top()));
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
 	glCullFace(GL_BACK);
 	drawStack.pop();
 	glDepthMask(GL_TRUE);
@@ -434,13 +492,13 @@ void draw(SDL_Window* window) {
 
 	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(5.5f)));
 
-	glBindTexture(GL_TEXTURE_2D, texture);
+	glBindTexture(GL_TEXTURE_2D, texture[0]);
 	drawStack.push(drawStack.top());
 	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(0.0f, 7.0f, -20.0f));
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(20.0f, 10.0f, 3.0f));
 	rt3d::setUniformMatrix4fv(spotlightProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(spotlightProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
 	// Reflector light blue
@@ -459,7 +517,7 @@ void draw(SDL_Window* window) {
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
 	// blue light position
@@ -468,7 +526,7 @@ void draw(SDL_Window* window) {
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(1.0f, 1.0f, 1.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
 	// Yellow light
@@ -486,7 +544,7 @@ void draw(SDL_Window* window) {
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
 	rt3d::setMaterial(shaderProgram, materialMap);
-	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
+	rt3d::drawIndexedMesh(meshObjects[0], meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
 
@@ -517,7 +575,7 @@ void draw(SDL_Window* window) {
 	glActiveTexture(GL_TEXTURE0);
 	glDisable(GL_CULL_FACE);
 	glDisable(GL_DEPTH_TEST);																			//To make sure quad is drawn on top of the scene
-	rt3d::drawIndexedMesh(meshObjects, 6, GL_TRIANGLES);	
+	rt3d::drawIndexedMesh(meshObjects[0], 6, GL_TRIANGLES);	
 	glBindTexture(GL_TEXTURE_2D, 0);
 	   
 	i++;
@@ -529,8 +587,36 @@ void draw(SDL_Window* window) {
 	for (int i = 0; i < 480000; i++)
 	{
 		if (pixelColour[i] > 0.998)																		//Values not exact as converted from being stored as ints
-		{			
+		{		
 			cout << "green \n\n";
+			//display bunny
+			glm::vec4 tmp = drawStack.top() * lightPos;
+			light0.position[0] = tmp.x;
+			light0.position[1] = tmp.y;
+			light0.position[2] = tmp.z;
+			// draw the  bunny
+			glUseProgram(ChromaticDispersionShaderProgram);
+			glActiveTexture(GL_TEXTURE1);
+			glBindTexture(GL_TEXTURE_CUBE_MAP, skybox[0]);
+			glActiveTexture(GL_TEXTURE0);
+			glBindTexture(GL_TEXTURE_2D, texture[0]);
+			GLuint uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "cameraPos");
+			uniformIndex = glGetUniformLocation(ChromaticDispersionShaderProgram, "dispersionSize");
+			glUniform1f(uniformIndex, dispersionSize);
+			glUniform3fv(uniformIndex, 1, glm::value_ptr(eye));
+			rt3d::setLightPos(ChromaticDispersionShaderProgram, glm::value_ptr(tmp));
+			rt3d::setUniformMatrix4fv(ChromaticDispersionShaderProgram, "projection", glm::value_ptr(projection));
+			glm::mat4 modelMatrix(1.0);
+			drawStack.push(drawStack.top());
+			drawStack.top() = glm::translate(drawStack.top(), glm::vec3(-4.0f, 0.1f, -2.0f));
+			drawStack.top() = glm::scale(drawStack.top(), glm::vec3(2000.0, 2000.0, 2000.0));
+			rt3d::setUniformMatrix4fv(ChromaticDispersionShaderProgram, "modelview", glm::value_ptr(drawStack.top()));
+			rt3d::setUniformMatrix4fv(ChromaticDispersionShaderProgram, "modelMatrix", glm::value_ptr(drawStack.top()));
+			rt3d::setMaterial(ChromaticDispersionShaderProgram, basicmaterial);
+			rt3d::drawIndexedMesh(meshObjects[1], toonIndexCount, GL_TRIANGLES);
+			drawStack.pop();
+			glUseProgram(motionBlur);
+			cout << "bunny is drawn \n\n";
 		}
 	}
 	
