@@ -82,11 +82,16 @@ SDL_Window* setupSDL(SDL_GLContext& context) {
 }
 
 GLuint loadTexture(const char* fileName) {
+	
+
 	GLuint textureID;
 	glGenTextures(1, &textureID);
 
 	// load file - using core SDL library
-	SDL_Surface* tmpSurface;
+	SDL_Surface* tmpSurface = SDL_LoadBMP(fileName);
+	SDL_Surface* formattedSurface = SDL_ConvertSurfaceFormat(
+		tmpSurface, SDL_PIXELFORMAT_ABGR8888, 0);
+	SDL_FreeSurface(tmpSurface);
 	tmpSurface = SDL_LoadBMP(fileName);
 	if (tmpSurface == nullptr) {
 		std::cout << "Error loading bitmap" << std::endl;
@@ -100,7 +105,8 @@ GLuint loadTexture(const char* fileName) {
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
 	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, tmpSurface->w, tmpSurface->h, 0,
-		GL_BGR, GL_UNSIGNED_BYTE, tmpSurface->pixels);
+		GL_RGBA, GL_UNSIGNED_BYTE, formattedSurface->pixels);
+	SDL_FreeSurface(formattedSurface);
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 	SDL_FreeSurface(tmpSurface);
@@ -185,26 +191,32 @@ void init() {
 	rt3d::setLight(shaderProgram, light);
 
 	spotlightProgram = rt3d::initShaders("../GroupProjectAGP/spotlightPhongShader.vert", "../GroupProjectAGP/spotlightPhongShader.frag");
+	glUseProgram(spotlightProgram);
 	rt3d::setLight(spotlightProgram, light);
+	rt3d::setMaterial(spotlightProgram, materialMap);
+	GLuint uniformIndex = glGetUniformLocation(spotlightProgram, "normalMap");
+	glUniform1i(uniformIndex, 1);
+	uniformIndex = glGetUniformLocation(spotlightProgram, "textureUnit0"); //texMap in reality
+	glUniform1i(uniformIndex, 0);
+
+	
+
+	texture = loadTexture("../GroupProjectAGP/Red_bricks.bmp");
+
+	textures[0] = loadTexture("../GroupProjectAGP/test2.bmp");
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
 	vector<GLfloat> tex_coords;
 	vector<GLuint> indices;
-
-	
-
 	rt3d::loadObj("../GroupProjectAGP/cube.obj", verts, norms, tex_coords, indices);
 	meshIndexCount = indices.size();
-
-	texture = loadTexture("../GroupProjectAGP/Red_bricks.bmp");
-	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
 
 	// also need for normal mapping a VBO for the bitangents
 	vector<GLfloat> tangents;
 	calculateTangents(tangents, verts, norms, tex_coords, indices);
 
-	textures[0] = loadTexture("../GroupProjectAGP/Red_Bricks_normalMap.bmp"); 
+	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
 
 	glBindVertexArray(meshObjects);
 	GLuint VBO;
@@ -217,6 +229,8 @@ void init() {
 	glBindVertexArray(0);
 
 	glEnable(GL_DEPTH_TEST);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 glm::vec3 moveForward(glm::vec3 pos, GLfloat angle, GLfloat d) {
@@ -287,43 +301,43 @@ void draw(SDL_Window* window) {
 	glClearColor(0.1f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	glm::mat4 model(1.0);
+
+	glm::mat4 projection(1.0);
+	projection = glm::perspective(float(60.0f * DEG_TO_RADIAN), 800.0f / 600.0f, 1.0f, 150.0f);
+
+	GLfloat scale(1.0f); // just to allow easy scaling of complete scene
+
+	glm::mat4 model(1.0); //base position
 	drawStack.push(model);
 
 	at = moveForward(eye, r, 1.0f);
 	glm::mat4 view = glm::lookAt(eye, at, up);
 	rt3d::setUniformMatrix4fv(shaderProgram, "view", glm::value_ptr(view));
 
-	glm::mat4 projection = glm::perspective(float(60.0f * DEG_TO_RADIAN), 800.0f / 600.0f, 1.0f, 150.0f);
 
 	glm::vec4 tmp = drawStack.top() * lightPos;
 	light.position[0] = tmp.x;
 	light.position[1] = tmp.y;
 	light.position[2] = tmp.z;
 
-	glUseProgram(spotlightProgram);
-	
-	rt3d::setUniformMatrix4fv(spotlightProgram, "view", glm::value_ptr(view));
-	rt3d::setUniformMatrix4fv(spotlightProgram, "projection", glm::value_ptr(projection));
+	glDepthMask(GL_TRUE);
 
 	glm::vec4 tmpSpotlightPos = drawStack.top() * glm::vec4(0.0f, -2.0f, -3.0f, 1.0f);
 	light.position[0] = tmpSpotlightPos.x;
 	light.position[1] = tmpSpotlightPos.y;
 	light.position[2] = tmpSpotlightPos.z;
-	rt3d::setLightPos(spotlightProgram, glm::value_ptr(tmpSpotlightPos));
 
+	glUseProgram(spotlightProgram);
+	
+	rt3d::setUniformMatrix4fv(spotlightProgram, "view", glm::value_ptr(view));
+	rt3d::setUniformMatrix4fv(spotlightProgram, "projection", glm::value_ptr(projection));
+
+	rt3d::setLightPos(spotlightProgram, glm::value_ptr(tmpSpotlightPos));
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "generalLightPos"), 1, glm::value_ptr(tmp));
 	glUniform3f(glGetUniformLocation(spotlightProgram, "viewPos"), eye.x, eye.y, eye.z);
 	glUniform3f(glGetUniformLocation(spotlightProgram, "reflectorPosition"), 0.0f, -2.0f, -3.0f);
 	glUniform3fv(glGetUniformLocation(spotlightProgram, "reflectorNormal"), 1, glm::value_ptr(reflectorNormal));
-
-
 	glUniform1f(glGetUniformLocation(spotlightProgram, "lightCutOff"), glm::cos(glm::radians(12.5f)));
-
-	GLuint uniformIndex = glGetUniformLocation(spotlightProgram, "normalMap");
-	glUniform1i(uniformIndex, 1);
-	uniformIndex = glGetUniformLocation(spotlightProgram, "textureUnit0"); //texMap in reality
-	glUniform1i(uniformIndex, 0);
 
 	glActiveTexture(GL_TEXTURE0);
 	glBindTexture(GL_TEXTURE_2D, texture);
@@ -331,12 +345,10 @@ void draw(SDL_Window* window) {
 	glBindTexture(GL_TEXTURE_2D, textures[0]);
 
 
-
 	drawStack.push(drawStack.top());
 	drawStack.top() = glm::translate(drawStack.top(), glm::vec3(0.0f, 7.0f, -20.0f));
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(20.0f, 10.0f, 0.5f));
 	rt3d::setUniformMatrix4fv(spotlightProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(spotlightProgram, materialMap);
 	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES);
 	drawStack.pop();
 
@@ -353,7 +365,6 @@ void draw(SDL_Window* window) {
 		drawStack.top() = glm::rotate(drawStack.top(), float(rotationAngle * DEG_TO_RADIAN), rotationPlane);
 	drawStack.top() = glm::scale(drawStack.top(), glm::vec3(3.0f, 0.2f, 5.0f));
 	rt3d::setUniformMatrix4fv(shaderProgram, "model", glm::value_ptr(drawStack.top()));
-	rt3d::setMaterial(shaderProgram, materialMap);
 	rt3d::drawIndexedMesh(meshObjects, meshIndexCount, GL_TRIANGLES); //platform
 	drawStack.pop();
 

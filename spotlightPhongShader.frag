@@ -30,7 +30,6 @@ in vec3 ex_Pos;
 in vec3 lightDirection;
 in vec3 ex_V;
 in vec3 ex_L;
-in vec3 ex_N;
 in vec3 eyeTan;
 in vec3 lightTan;
 
@@ -50,17 +49,19 @@ void main (void){
 		diffuseI = diffuseI * max(dot(N,normalize(lightTan)),0);
 
 		vec3 viewDir = normalize(viewPos - ex_Pos);
-		vec3 R = reflect(lightTan,N);
+		vec3 R = normalize(reflect(-lightTan,N));
 
 		vec4 specularI = light.specular * material.specular;
-		specularI = specularI * pow(max(dot(eyeTan, R),0.0), material.shininess);
+		specularI = specularI * pow(max(dot(R,-eyeTan),0), material.shininess);
 	
 	if (theta > lightCutOff){
 		out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
 	}
 	else
 	{
-		out_Color = vec4(light.ambient.xyz * vec3(texture (textureUnit0, ex_TexCoord)), 1.0);
+		//out_Color = vec4(light.ambient.xyz * vec3(texture (textureUnit0, ex_TexCoord)), 1.0);
+		out_Color = (ambientI/2 + diffuseI/2 + specularI/2) * texture(textureUnit0, ex_TexCoord);
+		//out_Color = vec4(N, 1.0);
 		}
 	
 	//out_Color = (ambientI + diffuseI + specularI) * texture(textureUnit0, ex_TexCoord);
