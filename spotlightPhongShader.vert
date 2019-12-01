@@ -32,7 +32,7 @@ void main(void) {
 	ex_Pos = vec3(model * vec4(in_Pos,1.0));
 	vec4 vertexPosition = (model) * vec4(in_Pos,1.0); //using for normal mapping
 
-	mat3 normalmatrix = transpose(inverse(mat3(model)));  //added view
+	mat3 normalmatrix = transpose(inverse(mat3(model)));  
 	ex_NormalWorld =  normalize(normalmatrix * in_Normal);
 	lightDirection = reflect(generalLightPos - reflectorPosition, reflectorNormal);
 	lightDirection.x = -lightDirection.x;
@@ -48,10 +48,8 @@ void main(void) {
 
 
 	//normal mapping
-
 	vec3 tan = (normalmatrix * tangent.xyz);
 	vec3 bitan = cross(ex_NormalWorld,tan)* tangent.w;
-	
 	
 	mat3 TBN = transpose(mat3(tan, bitan, ex_NormalWorld));
 	eyeTan = TBN * ex_V;
