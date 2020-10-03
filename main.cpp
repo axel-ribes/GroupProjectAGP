@@ -188,7 +188,7 @@ void init() {
 	vector<GLuint> indices;
 	rt3d::loadObj("../cube.obj", verts, norms, tex_coords, indices);
 	meshIndexCount = indices.size();
-	texture = loadTexture("../Red_bricks.bmp");
+	texture = loadTexture("../Red_Bricks.bmp");
 	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
 
 	glEnable(GL_DEPTH_TEST);
