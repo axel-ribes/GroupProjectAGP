@@ -8,8 +8,8 @@
 // Does not support groups or multiple meshes per file
 // Does not support anything other than very straightforward OBJ models
 // Will not generate normals if the model is missing them - or any other missing data
-#include "../include/rt3dObjLoader.h"
-#include "../include/rt3d.h"
+#include "rt3dObjLoader.h"
+#include "rt3d.h"
 #include <iostream>
 #include <sstream>
 #include <map>

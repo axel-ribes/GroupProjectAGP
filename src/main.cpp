@@ -8,8 +8,8 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "../include/rt3d.h"
-#include "../include/rt3dObjLoader.h"
+#include "rt3d.h"
+#include "rt3dObjLoader.h"
 
 #include <chrono>
 #include <thread>

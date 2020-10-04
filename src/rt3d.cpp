@@ -1,4 +1,4 @@
-#include "../include/rt3d.h"
+#include "rt3d.h"
 #include <map>
 
 using namespace std;
