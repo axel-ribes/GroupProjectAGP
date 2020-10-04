@@ -3,13 +3,13 @@
 #include <stdlib.h>
 #include <stack>
 
-#include <SDL.h>
+#include <SDL2/SDL.h>
 #include <GL/glew.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
-#include "rt3d.h"
-#include "rt3dObjLoader.h"
+#include "../include/rt3d.h"
+#include "../include/rt3dObjLoader.h"
 
 #include <chrono>
 #include <thread>
@@ -101,7 +101,7 @@ SDL_Window* setupSDL(SDL_GLContext& context) {
 	SDL_GL_SetAttribute(SDL_GL_MULTISAMPLESAMPLES, 4);// antialiasing
 
 	// create window
-	SDL_Window* window = SDL_CreateWindow("Class test Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 800, 600, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
+	SDL_Window* window = SDL_CreateWindow("Class test Project", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1920, 1080, SDL_WINDOW_OPENGL | SDL_WINDOW_SHOWN);
 	if (window == nullptr) {
 		cout << "SDL_CreateWindow Error: " << SDL_GetError() << endl;
 		SDL_Quit();
@@ -530,7 +530,7 @@ void draw(SDL_Window* window) {
 	{
 		if (pixelColour[i] > 0.998)																		//Values not exact as converted from being stored as ints
 		{			
-			cout << "green \n\n";
+			//cout << "green \n\n";
 		}
 	}
 	
