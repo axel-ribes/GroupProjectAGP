@@ -10,6 +10,7 @@
 #include <glm/gtc/type_ptr.hpp>
 #include "rt3d.h"
 #include "rt3dObjLoader.h"
+#include "utils.h"
 
 #include <chrono>
 #include <thread>
@@ -178,23 +179,25 @@ GLuint loadCubeMap(const char *fname[6], GLuint *texID)
 }
 
 void init() {
-	shaderProgram = rt3d::initShaders("../phongShader.vert", "../phongShader.frag");
+	shaderProgram = rt3d::initShaders(utils::getShaderFilePath("phongShader.vert"),
+                                      utils::getShaderFilePath("phongShader.frag"));
 
-	spotlightProgram = rt3d::initShaders("../spotlightPhongShader.vert", "../spotlightPhongShader.frag");
+	spotlightProgram = rt3d::initShaders(utils::getShaderFilePath("spotlightPhongShader.vert"),
+                                         utils::getShaderFilePath("spotlightPhongShader.frag"));
 
 	vector<GLfloat> verts;
 	vector<GLfloat> norms;
 	vector<GLfloat> tex_coords;
 	vector<GLuint> indices;
-	rt3d::loadObj("../cube.obj", verts, norms, tex_coords, indices);
+	rt3d::loadObj(utils::getObjectFilePath("cube.obj"), verts, norms, tex_coords, indices);
 	meshIndexCount = indices.size();
-	texture = loadTexture("../Red_Bricks.bmp");
+	texture = loadTexture(utils::getTextureFilePath("Red_Bricks.bmp"));
 	meshObjects = rt3d::createMesh(verts.size() / 3, verts.data(), nullptr, norms.data(), tex_coords.data(), meshIndexCount, indices.data());
 
 	glEnable(GL_DEPTH_TEST);
 	//---------------------------------------------------------------------------------------Motion blur
 	
-	motionBlur = rt3d::initShaders("../Blur.vert", "../Blur.frag");
+	motionBlur = rt3d::initShaders(utils::getShaderFilePath("Blur.vert"), utils::getShaderFilePath("Blur.frag"));
 	glGenTextures(6, pboTex);
 	GLuint pboTexSize = screenWidth * screenHeight * 3 * sizeof(GLubyte);
 	void* pboData = new GLubyte[pboTexSize];
@@ -244,15 +247,15 @@ void init() {
 	glBindBuffer(GL_PIXEL_PACK_BUFFER, 0);
 	delete pboData;
 
-	skyboxShader = rt3d::initShaders("../cubeMap.vert", "../cubeMap.frag");
+	skyboxShader = rt3d::initShaders(utils::getShaderFilePath("cubeMap.vert"), utils::getShaderFilePath("cubeMap.frag"));
 
 	const char *cubeTexFiles[6] = {
-		"../resources/skybox/Town_bk.bmp",
-		"../resources/skybox/Town_ft.bmp",
-		"../resources/skybox/Town_rt.bmp",
-		"../resources/skybox/Town_lf.bmp",
-		"../resources/skybox/Town_up.bmp",
-		"../resources/skybox/Town_dn.bmp"
+		utils::getSkyboxFilePath("Town_bk.bmp"),
+		utils::getSkyboxFilePath("Town_ft.bmp"),
+		utils::getSkyboxFilePath("Town_rt.bmp"),
+		utils::getSkyboxFilePath("Town_lf.bmp"),
+		utils::getSkyboxFilePath("Town_up.bmp"),
+		utils::getSkyboxFilePath("Town_dn.bmp")
 	};
 	loadCubeMap(cubeTexFiles, &skybox[0]);
 
